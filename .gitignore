@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# JavaScript / frontend tooling
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local prototype environment
+/prototypes/.venv/
+
+# Large local-only test media; keep the directory scaffold in Git
+/test_data/media/*
+!/test_data/media/.gitkeep
