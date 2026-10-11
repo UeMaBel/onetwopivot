@@ -10,13 +10,13 @@ export type PunchPathEvidence = {
 
 export class JabDetector {
   detect(path: PunchPathEvidence, minimumForward: number) {
-    return path.forward >= minimumForward ? "jab" as const : null;
+    return hasStraightPath(path, minimumForward) ? "jab" as const : null;
   }
 }
 
 export class RearStraightDetector {
   detect(path: PunchPathEvidence, minimumForward: number) {
-    return path.forward >= minimumForward ? "straight" as const : null;
+    return hasStraightPath(path, minimumForward) ? "straight" as const : null;
   }
 }
 
@@ -38,6 +38,12 @@ function hasHookArc(path: PunchPathEvidence, minimumMovement: number) {
 
 function hasUpwardPath(path: PunchPathEvidence, minimumMovement: number) {
   return path.upward >= minimumMovement && path.upward >= path.forward * 0.85 && path.upward >= path.lateral * 0.55;
+}
+
+function hasStraightPath(path: PunchPathEvidence, minimumForward: number) {
+  return path.forward >= minimumForward
+    && path.forward >= path.lateral * 0.75
+    && path.forward >= path.upward * 0.75;
 }
 
 export function asPunchType(type: PunchType, lead: boolean): PunchType {

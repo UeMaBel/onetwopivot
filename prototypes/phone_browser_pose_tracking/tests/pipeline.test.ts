@@ -40,14 +40,13 @@ function lateralRightExtension(timestamp: number): PoseFrame {
 
 function setArm(points: Landmark[], side: "left" | "right", extended: boolean) {
   const [shoulder, elbow, wrist] = side === "left" ? [11, 13, 15] : [12, 14, 16];
-  const sign = side === "left" ? -1 : 1;
   points[shoulder] = { ...points[shoulder], x: side === "left" ? 0.4 : 0.6, y: 0.3 };
   points[elbow] = extended
-    ? { x: 0.3 + (sign < 0 ? -0.03 : 0.03), y: 0.4, z: points[shoulder].z - 0.06, visibility: 1 }
-    : { x: 0.36 + (sign < 0 ? 0.02 : -0.02), y: 0.4, z: points[shoulder].z, visibility: 1 };
+    ? { x: side === "left" ? 0.34 : 0.66, y: 0.4, z: points[shoulder].z - 0.06, visibility: 1 }
+    : { x: side === "left" ? 0.38 : 0.62, y: 0.4, z: points[shoulder].z, visibility: 1 };
   points[wrist] = extended
-    ? { x: 0.16 + (sign < 0 ? -0.03 : 0.03), y: 0.45, z: points[shoulder].z - 0.12, visibility: 1 }
-    : { x: 0.42 + (sign < 0 ? 0.03 : -0.03), y: 0.38, z: points[shoulder].z, visibility: 1 };
+    ? { x: side === "left" ? 0.3 : 0.7, y: 0.45, z: points[shoulder].z - 0.12, visibility: 1 }
+    : { x: side === "left" ? 0.45 : 0.55, y: 0.38, z: points[shoulder].z, visibility: 1 };
 }
 
 function trajectoryPose(timestamp: number, side: "left" | "right", wrist: { x: number; y: number; z: number }, stretched = false): PoseFrame {
@@ -135,7 +134,7 @@ describe("boxing detection pipeline", () => {
     for (const [side, label] of [["left", "3"], ["right", "4"]] as const) {
       const pipeline = new BoxingDetectionPipeline();
       pipeline.process(pose(0));
-      pipeline.process(trajectoryPose(50, side, { x: 0.55, y: 0.38, z: 0 }));
+      pipeline.process(trajectoryPose(50, side, { x: side === "left" ? 0.55 : 0.4, y: 0.38, z: 0 }));
       pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.38, z: 0 }));
       const hook = pipeline.process(trajectoryPose(150, side, { x: 0.65, y: 0.38, z: 0 }, true));
       expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
@@ -150,7 +149,7 @@ describe("boxing detection pipeline", () => {
     for (const [side, label] of [["left", "3b"], ["right", "4b"]] as const) {
       const pipeline = new BoxingDetectionPipeline();
       pipeline.process(pose(0));
-      pipeline.process(trajectoryPose(50, side, { x: 0.55, y: 0.38, z: 0 }));
+      pipeline.process(trajectoryPose(50, side, { x: side === "left" ? 0.55 : 0.4, y: 0.38, z: 0 }));
       pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.38, z: 0 }));
       const hook = pipeline.process(trajectoryPose(150, side, { x: 0.65, y: 0.58, z: 0 }, true));
       expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
@@ -204,7 +203,8 @@ describe("boxing detection pipeline", () => {
   it("recognizes rear straights and permits a new punch after retraction", () => {
     const pipeline = new BoxingDetectionPipeline();
     pipeline.process(pose(0));
-    expect(pipeline.process(pose(100, false, true)).events[0]).toMatchObject({ arm: "right", type: "straight", label: "2" });
+    const rearPunch = pipeline.process(pose(100, false, true));
+    expect(rearPunch.events[0]).toMatchObject({ arm: "right", type: "straight", label: "2" });
     pipeline.process(pose(200));
     expect(pipeline.process(pose(300, true)).events).toHaveLength(1);
     pipeline.process(pose(400));
@@ -239,6 +239,17 @@ describe("boxing detection pipeline", () => {
     const pipeline = new BoxingDetectionPipeline();
     pipeline.process(pose(0));
     const update = pipeline.process(lateralRightExtension(100));
+    expect(update.events).toHaveLength(0);
+    expect(update.unclassified).toMatchObject([{ arm: "right", reason: "rear-hand-extension" }]);
+  });
+
+  it("keeps a forward-moving rear extension unclassified when its path is not straight", () => {
+    const pipeline = new BoxingDetectionPipeline();
+    pipeline.process(pose(0));
+    const diagonalExtension = pose(100, false, true);
+    if (!diagonalExtension.landmarks) throw new Error("Expected landmarks");
+    diagonalExtension.landmarks[16].x = 0.87;
+    const update = pipeline.process(diagonalExtension);
     expect(update.events).toHaveLength(0);
     expect(update.unclassified).toMatchObject([{ arm: "right", reason: "rear-hand-extension" }]);
   });

@@ -21,10 +21,10 @@ function setArm(points: Landmark[], side: "left" | "right", extended: boolean) {
   const [shoulder, elbow, wrist] = side === "left" ? [11, 13, 15] : [12, 14, 16];
   points[shoulder] = { ...points[shoulder], x: side === "left" ? 0.4 : 0.6, y: 0.3 };
   points[elbow] = extended
-    ? { x: side === "left" ? 0.27 : 0.73, y: 0.4, z: points[shoulder].z - 0.06, visibility: 1 }
+    ? { x: side === "left" ? 0.34 : 0.66, y: 0.4, z: points[shoulder].z - 0.06, visibility: 1 }
     : { x: side === "left" ? 0.38 : 0.62, y: 0.4, z: points[shoulder].z, visibility: 1 };
   points[wrist] = extended
-    ? { x: side === "left" ? 0.13 : 0.87, y: 0.45, z: points[shoulder].z - 0.12, visibility: 1 }
+    ? { x: side === "left" ? 0.3 : 0.7, y: 0.45, z: points[shoulder].z - 0.12, visibility: 1 }
     : { x: side === "left" ? 0.45 : 0.55, y: 0.38, z: points[shoulder].z, visibility: 1 };
 }
 

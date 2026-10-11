@@ -8,8 +8,8 @@ function makeFrame(timestamp: number, extended: boolean, bodyTarget = false): Po
   landmarks[12] = { x: 0.6, y: 0.3, z: 0, visibility: 1 };
   landmarks[23] = { x: 0.45, y: 0.6, z: 0, visibility: 1 };
   landmarks[24] = { x: 0.55, y: 0.6, z: 0, visibility: 1 };
-  landmarks[13] = extended ? { x: 0.27, y: 0.4, z: -0.31 } : { x: 0.38, y: 0.4, z: -0.25 };
-  landmarks[15] = extended ? { x: 0.13, y: bodyTarget ? 0.58 : 0.45, z: -0.37 } : { x: 0.45, y: 0.38, z: -0.25 };
+  landmarks[13] = extended ? { x: 0.34, y: 0.4, z: -0.31 } : { x: 0.38, y: 0.4, z: -0.25 };
+  landmarks[15] = extended ? { x: 0.3, y: bodyTarget ? 0.58 : 0.45, z: -0.37 } : { x: 0.45, y: 0.38, z: -0.25 };
   landmarks[14] = { x: 0.62, y: 0.4, z: 0 };
   landmarks[16] = { x: 0.55, y: 0.38, z: 0 };
   return { timestamp, landmarks };
