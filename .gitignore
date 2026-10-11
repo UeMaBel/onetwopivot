@@ -33,3 +33,4 @@ Thumbs.db
 # Large local-only test media; keep the directory scaffold in Git
 /test_data/media/*
 !/test_data/media/.gitkeep
+!/test_data/media/README.md
