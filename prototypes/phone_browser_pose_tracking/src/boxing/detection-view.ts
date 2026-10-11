@@ -1,5 +1,6 @@
 import type { BoxingPipelineUpdate, JabEvent, BoxingThresholds } from "@onetwopivot/boxing-detection";
 import { evaluateSequences, type EvaluationInput, type EvaluationReport } from "@onetwopivot/boxing-detection";
+import { formatPunchEventLabel } from "./punch-event-label";
 import "./detection.css";
 
 export function mountDetectionView(thresholds: BoxingThresholds) {
@@ -16,7 +17,7 @@ export function mountDetectionView(thresholds: BoxingThresholds) {
         <label>Movement start change <input id="movement-threshold" type="number" min="0.01" max="0.5" step="0.01"></label>
         <label>Forward movement <input id="forward-threshold" type="number" min="0.01" max="0.5" step="0.01"></label>
       </div></details>
-      <h3>Jab events <span id="jab-count">0</span></h3><ol class="jab-events" id="jab-events"><li class="empty-events">Jab events appear here when the camera is running.</li></ol>
+      <h3>Punch events <span id="jab-count">0</span></h3><ol class="jab-events" id="jab-events"><li class="empty-events">Punch events appear here when the camera is running.</li></ol>
       <p class="unclassified-readout" id="unclassified-readout" aria-live="polite"></p>
     </section>
     <details class="evaluation-card"><summary>Evaluate labeled pose sequences</summary>
@@ -75,7 +76,7 @@ export function mountDetectionView(thresholds: BoxingThresholds) {
     count.textContent = String(allEvents.length);
     eventList.innerHTML = "";
     for (const event of [...allEvents].reverse().slice(0, 20)) eventList.append(renderEvent(event));
-    if (!allEvents.length) eventList.innerHTML = '<li class="empty-events">No jab events detected yet.</li>';
+    if (!allEvents.length) eventList.innerHTML = '<li class="empty-events">No punch events detected yet.</li>';
     unclassified.textContent = uncertainCount ? `${uncertainCount} extension movement${uncertainCount === 1 ? "" : "s"} remain unclassified (including rear-hand extensions).` : "";
   }
 
@@ -87,7 +88,7 @@ export function mountDetectionView(thresholds: BoxingThresholds) {
     arms.innerHTML = "";
     count.textContent = "0";
     unclassified.textContent = "";
-    eventList.innerHTML = '<li class="empty-events">No jab events detected yet.</li>';
+    eventList.innerHTML = '<li class="empty-events">No punch events detected yet.</li>';
   }
 
   async function evaluateSelected() {
@@ -111,7 +112,7 @@ export function mountDetectionView(thresholds: BoxingThresholds) {
 function renderEvent(event: JabEvent) {
   const item = document.createElement("li");
   item.className = "jab-event";
-  item.innerHTML = `<strong>Jab · ${event.arm} arm</strong><span>${event.stance.stance} (${event.stance.source}) · confidence ${Math.round(event.confidence * 100)}%</span><span>Extension ${Math.round(event.evidence.extension * 100)}% · forward ${event.evidence.forwardMovement.toFixed(2)} · recovery ${event.recovery}</span>`;
+  item.innerHTML = `<strong>${formatPunchEventLabel(event)}</strong><span>${event.stance.stance} (${event.stance.source}) · confidence ${Math.round(event.confidence * 100)}%</span><span>Extension ${Math.round(event.evidence.extension * 100)}% · forward ${event.evidence.forwardMovement.toFixed(2)} · recovery ${event.recovery}</span>`;
   return item;
 }
 

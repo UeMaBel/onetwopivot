@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] Recognized jabs use the established jab event boundary and preserve the anatomical arm and stance context captured when the action begins.
-- [ ] A pose-relative fist endpoint supports head-versus-body labeling; lowering the boxer’s height can support a body label but cannot determine it by itself.
-- [ ] A recognized jab with unclear target is labeled `1`; a movement whose punch type is unclear remains unclassified.
-- [ ] The live prototype and timestamped sequence evaluation expose the `1` and `1b` labels, and tests cover target ambiguity, knee bend, recovery, repeated jabs, and missing frames.
-- [ ] No contact, return to guard, fixed camera angle, or technique-quality score is required.
+- [x] Recognized jabs use the established jab event boundary and preserve the anatomical arm and stance context captured when the action begins.
+- [x] A pose-relative fist endpoint supports head-versus-body labeling; lowering the boxer’s height can support a body label but cannot determine it by itself.
+- [x] A recognized jab with unclear target is labeled `1`; a movement whose punch type is unclear remains unclassified.
+- [x] The live prototype and timestamped sequence evaluation expose the `1` and `1b` labels, and tests cover target ambiguity, knee bend, recovery, repeated jabs, and missing frames.
+- [x] No contact, return to guard, fixed camera angle, or technique-quality score is required.

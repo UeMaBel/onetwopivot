@@ -51,8 +51,8 @@ describe("video benchmark annotation and count evaluation", () => {
     }]);
 
     expect(report.actions["1"]).toMatchObject({ expected: 1, detected: 1, difference: 0 });
-    expect(report.actions["2"]).toMatchObject({ expected: 1, detected: 0, difference: -1 });
-    expect(report.unclassifiedDetections).toBe(1);
+    expect(report.actions["2"]).toMatchObject({ expected: 1, detected: 1, difference: 0 });
+    expect(report.unclassifiedDetections).toBe(0);
     expect(report.stance).toMatchObject({ expected: 1, detected: 1, correct: 1, accuracy: 1 });
   });
 

@@ -25,13 +25,17 @@ export type ArmEvidence = {
   extensionDelta: number;
   movement: number;
   forwardMovement: number;
+  lateralMovement: number;
+  upwardMovement: number;
+  targetPosition: number | null;
   actionStarted: boolean;
 };
 
-export type JabEvent = {
+export type PunchType = "jab" | "straight" | "hook" | "uppercut";
+export type PunchEvent = {
   id: number;
-  type: "jab";
-  label: "1";
+  type: PunchType;
+  label: Extract<BoxingActionLabel, `${number}${"" | "b"}`>;
   timestamp: number;
   arm: ArmSide;
   stance: StanceContext;
@@ -40,6 +44,7 @@ export type JabEvent = {
   recovery: "pending" | "recovered" | "incomplete";
   recoveryTimestamp?: number;
 };
+export type JabEvent = PunchEvent;
 
 export type RecoveryUpdate = {
   eventId: number;
@@ -61,7 +66,7 @@ export type BoxingPipelineUpdate = {
   personDetected: boolean;
   stance: StanceObservation;
   arms: Record<ArmSide, ArmEvidence>;
-  events: JabEvent[];
+  events: PunchEvent[];
   unclassified: UnclassifiedMovement[];
   recoveryUpdates: RecoveryUpdate[];
 };
@@ -82,8 +87,9 @@ export type SequenceAnnotation = {
   sequenceId: string;
   stance?: Stance;
   stances?: Array<{ timestamp: number; stance: Stance }>;
-  jabs: Array<{ timestamp: number; arm: ArmSide }>;
-  movements?: Array<{ timestamp: number; arm: ArmSide; expected: "jab" | "unclassified" }>;
+  jabs?: Array<{ timestamp: number; arm: ArmSide }>;
+  actions?: Array<{ timestamp: number; arm: ArmSide; label: Extract<BoxingActionLabel, `${number}${"" | "b"}`> }>;
+  movements?: Array<{ timestamp: number; arm: ArmSide; expected: BoxingActionLabel | "jab" | "unclassified" }>;
 };
 
 export type BenchmarkSplit = "tuning" | "validation";

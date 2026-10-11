@@ -1,14 +1,14 @@
 import type { PoseFrame } from "./types";
 import { ArmObserver } from "./arm-observer";
 import type { BoxingThresholds, BoxingPipelineUpdate, ArmSide } from "./contracts";
-import { JabDetector } from "./jab-detector";
+import { PunchDetector } from "./punch-detector";
 import { StanceDetector } from "./stance-detector";
 import { defaultBoxingThresholds } from "./thresholds";
 
 export class BoxingDetectionPipeline {
   private readonly stanceDetector: StanceDetector;
   private readonly armObserver: ArmObserver;
-  private readonly jabDetector: JabDetector;
+  private readonly punchDetector: PunchDetector;
   private lastTimestamp: number | undefined;
   readonly thresholds: BoxingThresholds;
 
@@ -16,14 +16,14 @@ export class BoxingDetectionPipeline {
     this.thresholds = { ...thresholds };
     this.stanceDetector = new StanceDetector(this.thresholds);
     this.armObserver = new ArmObserver(this.thresholds);
-    this.jabDetector = new JabDetector(this.thresholds);
+    this.punchDetector = new PunchDetector(this.thresholds);
   }
 
   process(frame: PoseFrame): BoxingPipelineUpdate {
     const recoveryUpdates: BoxingPipelineUpdate["recoveryUpdates"] = [];
     if (this.lastTimestamp !== undefined && frame.timestamp - this.lastTimestamp > this.thresholds.trackingGapResetMs) {
       this.armObserver.reset();
-      recoveryUpdates.push(...this.jabDetector.interrupt(frame.timestamp));
+      recoveryUpdates.push(...this.punchDetector.interrupt(frame.timestamp));
     }
     this.lastTimestamp = frame.timestamp;
     const stance = this.stanceDetector.observe(frame);
@@ -31,7 +31,7 @@ export class BoxingDetectionPipeline {
     const events = [] as BoxingPipelineUpdate["events"];
     const unclassified = [] as BoxingPipelineUpdate["unclassified"];
     for (const side of ["left", "right"] as const satisfies readonly ArmSide[]) {
-      const result = this.jabDetector.observe(arms[side], stance.context);
+      const result = this.punchDetector.observe(arms[side], stance.context);
       events.push(...result.events);
       unclassified.push(...result.unclassified);
       recoveryUpdates.push(...result.recoveryUpdates);
@@ -43,6 +43,6 @@ export class BoxingDetectionPipeline {
     this.lastTimestamp = undefined;
     this.stanceDetector.reset();
     this.armObserver.reset();
-    this.jabDetector.reset();
+    this.punchDetector.reset();
   }
 }

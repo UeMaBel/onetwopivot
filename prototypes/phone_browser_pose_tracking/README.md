@@ -59,9 +59,9 @@ To switch variants later, add the corresponding model asset and update `poseMode
 
 ## Boxing detection
 
-The on-device boxing pipeline consumes timestamped pose frames shared from the live pose worker. It exposes stance context, separate left and right arm observations, jab events, unclassified extensions, and recovery updates. Thresholds are collected in the shared `packages/boxing-detection` package and can also be adjusted in the live detection panel. These values are provisional until they are tuned from phone observations.
+The on-device boxing pipeline consumes timestamped pose frames shared from the live pose worker. It exposes stance context, separate left and right arm observations, events for jabs (`1`), rear straights (`2`), hooks (`3`, `4`), and uppercuts (`5`, `6`), plus body-target variants (`1b`–`6b`), unclassified movements, and recovery updates. Thresholds are collected in the shared `packages/boxing-detection` package and can also be adjusted in the live detection panel. These values are provisional until they are tuned from phone observations.
 
-Jab events are reported when a lead arm extension crosses the configured movement and extension thresholds and the wrist moves toward the phone camera. Lateral extensions without forward movement remain unclassified. This direction cue reflects the face-the-phone experiment setup; it will need review if the camera angle changes. Recovery is attached as separate event status; loss of tracking marks recovery incomplete without removing the jab. Rear-hand extensions remain unclassified. The confidence value is a provisional heuristic, not a calibrated probability.
+Punch type follows the wrist path: forward movement identifies a jab or rear straight, a lateral arc identifies a hook, and upward movement identifies an uppercut. The anatomical arm is mapped to lead or rear using the stance captured when movement begins. The wrist endpoint relative to the shoulders and hips supports head-versus-body labels; lowering the body alone does not produce a body label, and an unclear target defaults to the head. Unclear punch paths remain unclassified. Recovery stays separate from detection, and loss of tracking marks recovery incomplete without removing the event. The confidence value is a provisional heuristic, not a calibrated probability.
 
 ## Labeled sequence evaluation
 
@@ -82,9 +82,9 @@ Use **Evaluate labeled pose sequences** below the live detection panel to replay
     {
       "sequenceId": "jab-01",
       "stances": [{ "timestamp": 0, "stance": "orthodox" }],
-      "jabs": [{ "timestamp": 100, "arm": "left" }],
+      "actions": [{ "timestamp": 100, "arm": "left", "label": "1" }],
       "movements": [
-        { "timestamp": 100, "arm": "left", "expected": "jab" },
+        { "timestamp": 100, "arm": "left", "expected": "1" },
         { "timestamp": 500, "arm": "right", "expected": "unclassified" }
       ]
     }
@@ -92,7 +92,7 @@ Use **Evaluate labeled pose sequences** below the live detection panel to replay
 }
 ```
 
-Each non-null `landmarks` array uses MediaPipe's landmark order and should contain the full 33-point pose. `stances` is optional; its timestamped samples are scored independently of jab matches. A single `stance` field can describe one stance sample at the sequence start. Jab annotations include event time in milliseconds and anatomical arm. `movements` describes the labeled movement candidates used for coverage and classification accuracy; if omitted, jab annotations supply that set. The report lists missed and extra jabs, precision, recall, F1, movement classification coverage and accuracy, and stance accuracy. `timingToleranceMs` defaults to 250 in the evaluator API.
+Each non-null `landmarks` array uses MediaPipe's landmark order and should contain the full 33-point pose. `stances` is optional; its timestamped samples are scored independently of action matches. A single `stance` field can describe one stance sample at the sequence start. `actions` lists punch labels with event time in milliseconds and anatomical arm; legacy `jabs` annotations remain supported. `movements` describes the candidates used for classification coverage and accuracy; if omitted, the action annotations supply that set. The report includes per-label action matches and missed or extra actions, movement classification coverage and accuracy, and stance accuracy. `timingToleranceMs` defaults to 250 in the evaluator API.
 
 The one-point landmark array in the abbreviated JSON example illustrates the object shape only; real input frames need all 33 landmarks.
 

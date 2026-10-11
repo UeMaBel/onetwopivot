@@ -16,6 +16,18 @@ function makeFrame(timestamp: number, extended: boolean): PoseFrame {
 }
 
 describe("labeled sequence evaluation", () => {
+  it("matches action labels and reports misses and extras for timestamped punch annotations", () => {
+    const report = evaluateSequences({
+      sequences: [{ id: "jab-sequence", frames: [makeFrame(0, false), makeFrame(100, true), makeFrame(200, false)] }],
+      annotations: [{
+        sequenceId: "jab-sequence",
+        actions: [{ timestamp: 100, arm: "left", label: "1" }],
+        movements: [{ timestamp: 100, arm: "left", expected: "1" }],
+      }],
+    });
+    expect(report).toMatchObject({ expectedActions: 1, detectedActions: 1, matchedActions: 1, missedActions: [], extraActions: [], classificationCoverage: 1, classificationAccuracy: 1 });
+  });
+
   it("reports misses, extras, coverage, correctness, and repeatable results", () => {
     const input = {
       sequences: [

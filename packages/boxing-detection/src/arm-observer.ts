@@ -24,19 +24,25 @@ export class ArmObserver {
     const wrist = points?.[wristIndex];
     const prior = this.previous.get(side);
     if (!shoulder || !elbow || !wrist || [shoulder, elbow, wrist].some((point) => (point.visibility ?? 1) < 0.3)) {
-      return { side, timestamp: frame.timestamp, wrist: null, extension: null, extensionDelta: 0, movement: 0, forwardMovement: 0, actionStarted: false } satisfies ArmEvidence;
+      return { side, timestamp: frame.timestamp, wrist: null, extension: null, extensionDelta: 0, movement: 0, forwardMovement: 0, lateralMovement: 0, upwardMovement: 0, targetPosition: null, actionStarted: false } satisfies ArmEvidence;
     }
     const extension = distance(shoulder, wrist) / Math.max(distance(shoulder, elbow) + distance(elbow, wrist), 0.001);
     const extensionDelta = extension !== null && prior?.extension !== null && prior?.extension !== undefined
       ? extension - prior.extension : 0;
     const movement = wrist && prior?.wrist ? distance(wrist, prior.wrist) : 0;
     const forwardMovement = wrist && prior?.wrist ? prior.wrist.z - wrist.z : 0;
+    const lateralMovement = wrist && prior?.wrist ? wrist.x - prior.wrist.x : 0;
+    const upwardMovement = wrist && prior?.wrist ? prior.wrist.y - wrist.y : 0;
+    const hip = points?.[side === "left" ? 23 : 24];
+    const torsoHeight = hip ? hip.y - shoulder.y : 0;
+    const targetPosition = torsoHeight > 0 ? (wrist.y - shoulder.y) / torsoHeight : null;
     const actionStarted = extensionDelta >= this.thresholds.movementStartDelta;
     this.previous.set(side, { extension, wrist: wrist ?? null, timestamp: frame.timestamp });
     return {
       side, timestamp: frame.timestamp, wrist: wrist ?? null, extension,
       extensionDelta, movement, actionStarted,
-      forwardMovement,
+      forwardMovement, lateralMovement, upwardMovement,
+      targetPosition: targetPosition !== null && Number.isFinite(targetPosition) ? targetPosition : null,
     } satisfies ArmEvidence;
   }
 

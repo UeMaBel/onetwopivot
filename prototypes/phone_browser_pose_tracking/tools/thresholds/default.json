@@ -7,7 +7,7 @@
     "minimumForwardMovement": 0.02,
     "minimumExtension": 0.72,
     "minimumExtensionDelta": 0.16,
-    "recoveryExtension": 0.58,
+    "recoveryExtension": 0.7,
     "trackingGapResetMs": 700
   }
 }

@@ -42,6 +42,19 @@ function setArm(points: Landmark[], side: "left" | "right", extended: boolean) {
     : { x: 0.42 + (sign < 0 ? 0.03 : -0.03), y: 0.38, z: points[shoulder].z, visibility: 1 };
 }
 
+function trajectoryPose(timestamp: number, side: "left" | "right", wrist: { x: number; y: number; z: number }, stretched = false): PoseFrame {
+  const frame = pose(timestamp);
+  if (!frame.landmarks) throw new Error("Expected landmarks");
+  const [shoulderIndex, elbowIndex, wristIndex] = side === "left" ? [11, 13, 15] : [12, 14, 16];
+  const shoulder = frame.landmarks[shoulderIndex];
+  const guardElbow = { x: shoulder.x + (side === "left" ? -0.12 : 0.12), y: shoulder.y + 0.1, z: shoulder.z };
+  frame.landmarks[elbowIndex] = stretched
+    ? { x: (shoulder.x + wrist.x) / 2, y: (shoulder.y + wrist.y) / 2, z: (shoulder.z + wrist.z) / 2 }
+    : guardElbow;
+  frame.landmarks[wristIndex] = { ...wrist, visibility: 1 };
+  return frame;
+}
+
 describe("boxing detection pipeline", () => {
   it("keeps orthodox as an explicit assumption until stance is certain", () => {
     const pipeline = new BoxingDetectionPipeline();
@@ -61,11 +74,98 @@ describe("boxing detection pipeline", () => {
     expect(recovered.recoveryUpdates[0]).toMatchObject({ eventId: jab.events[0].id, recovery: "recovered" });
   });
 
+  it("labels head and body punches from the fist endpoint relative to the torso", () => {
+    const headPipeline = new BoxingDetectionPipeline();
+    headPipeline.process(pose(0));
+    expect(headPipeline.process(pose(100, true)).events[0]).toMatchObject({ label: "1", type: "jab" });
+
+    const unclearPipeline = new BoxingDetectionPipeline();
+    unclearPipeline.process(pose(0));
+    const unclearTarget = pose(100, true);
+    if (!unclearTarget.landmarks) throw new Error("Expected landmarks");
+    unclearTarget.landmarks[23].y = unclearTarget.landmarks[11].y;
+    expect(unclearPipeline.process(unclearTarget).events[0]).toMatchObject({ label: "1", type: "jab" });
+
+    const bodyPipeline = new BoxingDetectionPipeline();
+    bodyPipeline.process(pose(0));
+    const bodyPose = pose(100, true);
+    if (!bodyPose.landmarks) throw new Error("Expected landmarks");
+    bodyPose.landmarks[15].y = 0.58;
+    expect(bodyPipeline.process(bodyPose).events[0]).toMatchObject({ label: "1b", type: "jab" });
+
+    const loweredPipeline = new BoxingDetectionPipeline();
+    loweredPipeline.process(pose(0));
+    const loweredBoxer = pose(100, true);
+    if (!loweredBoxer.landmarks) throw new Error("Expected landmarks");
+    for (const index of [11, 12, 13, 14, 15, 16, 23, 24]) loweredBoxer.landmarks[index].y += 0.1;
+    expect(loweredPipeline.process(loweredBoxer).events[0]).toMatchObject({ label: "1", type: "jab" });
+  });
+
+  it("resolves lead and rear straight labels from captured orthodox and southpaw stance", () => {
+    for (const stance of ["orthodox", "southpaw"] as const) {
+      const leadSide = stance === "orthodox" ? "left" : "right";
+      const rearSide = stance === "orthodox" ? "right" : "left";
+      for (const [side, label, type] of [[leadSide, "1", "jab"], [rearSide, "2", "straight"]] as const) {
+        const pipeline = new BoxingDetectionPipeline();
+        pipeline.process(pose(0, false, false, stance));
+        const update = pipeline.process(pose(100, side === "left", side === "right", stance));
+        expect(update.events[0]).toMatchObject({ arm: side, label, type, stance: { stance } });
+        const recovered = pipeline.process(pose(200, false, false, stance));
+        expect(recovered.recoveryUpdates[0]).toMatchObject({ eventId: update.events[0].id, recovery: "recovered" });
+        expect(pipeline.process(pose(300, side === "left", side === "right", stance)).events).toHaveLength(1);
+      }
+    }
+    const bodyPipeline = new BoxingDetectionPipeline();
+    bodyPipeline.process(pose(0));
+    const bodyStraight = pose(100, false, true);
+    if (!bodyStraight.landmarks) throw new Error("Expected landmarks");
+    bodyStraight.landmarks[16].y = 0.58;
+    expect(bodyPipeline.process(bodyStraight).events[0]).toMatchObject({ type: "straight", label: "2b", arm: "right" });
+  });
+
+  it("distinguishes an arcing hook path from a straight extension", () => {
+    for (const [side, label] of [["left", "3"], ["right", "4"]] as const) {
+      const pipeline = new BoxingDetectionPipeline();
+      pipeline.process(pose(0));
+      pipeline.process(trajectoryPose(50, side, { x: 0.55, y: 0.38, z: 0 }));
+      const hook = pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.38, z: 0 }, true));
+      expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
+    }
+    for (const [side, label] of [["left", "3b"], ["right", "4b"]] as const) {
+      const pipeline = new BoxingDetectionPipeline();
+      pipeline.process(pose(0));
+      pipeline.process(trajectoryPose(50, side, { x: 0.55, y: 0.38, z: 0 }));
+      const hook = pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.58, z: 0 }, true));
+      expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
+    }
+  });
+
+  it("recognizes an upward rear-hand path and labels its body target", () => {
+    const pipeline = new BoxingDetectionPipeline();
+    const guard = trajectoryPose(0, "right", { x: 0.55, y: 0.68, z: 0 });
+    pipeline.process(guard);
+    pipeline.process(trajectoryPose(50, "right", { x: 0.55, y: 0.59, z: 0 }));
+    const uppercut = pipeline.process(trajectoryPose(100, "right", { x: 0.55, y: 0.52, z: 0 }, true));
+    expect(uppercut.events[0]).toMatchObject({ type: "uppercut", label: "6b", arm: "right" });
+
+    const leadPipeline = new BoxingDetectionPipeline();
+    leadPipeline.process(trajectoryPose(0, "left", { x: 0.45, y: 0.68, z: 0 }));
+    leadPipeline.process(trajectoryPose(50, "left", { x: 0.45, y: 0.56, z: 0 }));
+    const leadUppercut = leadPipeline.process(trajectoryPose(100, "left", { x: 0.45, y: 0.45, z: 0 }, true));
+    expect(leadUppercut.events[0]).toMatchObject({ type: "uppercut", label: "5", arm: "left" });
+
+    const leadBodyPipeline = new BoxingDetectionPipeline();
+    leadBodyPipeline.process(trajectoryPose(0, "left", { x: 0.45, y: 0.68, z: 0 }));
+    leadBodyPipeline.process(trajectoryPose(50, "left", { x: 0.45, y: 0.59, z: 0 }));
+    const leadBodyUppercut = leadBodyPipeline.process(trajectoryPose(100, "left", { x: 0.45, y: 0.52, z: 0 }, true));
+    expect(leadBodyUppercut.events[0]).toMatchObject({ type: "uppercut", label: "5b", arm: "left" });
+  });
+
   it("captures detected stance when movement starts and retains it through a stance change", () => {
     const pipeline = new BoxingDetectionPipeline();
     pipeline.process(pose(0, false, false, "orthodox"));
-    pipeline.process(partialLeftExtension(100, "orthodox"));
-    const update = pipeline.process(pose(200, true, false, "orthodox"));
+    const update = pipeline.process(partialLeftExtension(100, "orthodox"));
+    pipeline.process(pose(200, true, false, "orthodox"));
     pipeline.process(pose(300, true, false, "southpaw"));
     expect(update.events[0]).toMatchObject({ arm: "left", stance: { stance: "orthodox", source: "detected" } });
   });
@@ -84,10 +184,10 @@ describe("boxing detection pipeline", () => {
     expect(pipeline.process(pose(0)).stance.context).toMatchObject({ stance: "orthodox", source: "assumed" });
   });
 
-  it("keeps rear-hand extension unclassified and permits a new jab after retraction", () => {
+  it("recognizes rear straights and permits a new punch after retraction", () => {
     const pipeline = new BoxingDetectionPipeline();
     pipeline.process(pose(0));
-    expect(pipeline.process(pose(100, false, true)).unclassified[0]).toMatchObject({ arm: "right", reason: "rear-hand-extension" });
+    expect(pipeline.process(pose(100, false, true)).events[0]).toMatchObject({ arm: "right", type: "straight", label: "2" });
     pipeline.process(pose(200));
     expect(pipeline.process(pose(300, true)).events).toHaveLength(1);
     pipeline.process(pose(400));
@@ -98,8 +198,7 @@ describe("boxing detection pipeline", () => {
     const pipeline = new BoxingDetectionPipeline();
     pipeline.process(pose(0));
     const update = pipeline.process(pose(100, true, true));
-    expect(update.events.map((event) => event.arm)).toEqual(["left"]);
-    expect(update.unclassified.map((movement) => movement.arm)).toEqual(["right"]);
+    expect(update.events.map((event) => event.arm)).toEqual(["left", "right"]);
     expect(update.arms.left.extension).toBeGreaterThan(0.78);
     expect(update.arms.right.extension).toBeGreaterThan(0.78);
   });

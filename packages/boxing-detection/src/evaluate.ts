@@ -1,10 +1,10 @@
-import type { BoxingThresholds, CountBenchmarkClip, CountBenchmarkReport, JabEvent, PoseSequence, SequenceAnnotation, UnclassifiedMovement } from "./contracts";
+import type { BoxingThresholds, CountBenchmarkClip, CountBenchmarkReport, PunchEvent, PoseSequence, SequenceAnnotation, UnclassifiedMovement } from "./contracts";
 import type { BoxingActionLabel, BenchmarkSplit } from "./contracts";
 import { BoxingDetectionPipeline } from "./pipeline";
 import { defaultBoxingThresholds } from "./thresholds";
 
 export type EvaluationInput = { sequences: PoseSequence[]; annotations: SequenceAnnotation[] };
-type MovementPrediction = { timestamp: number; arm: string; label: "jab" | "unclassified" };
+type MovementPrediction = { timestamp: number; arm: string; label: BoxingActionLabel | "unclassified" };
 
 export type EvaluationReport = {
   sequenceCount: number;
@@ -22,6 +22,11 @@ export type EvaluationReport = {
   classificationCoverage: number;
   classificationAccuracy: number;
   stance: { expected: number; correct: number; accuracy: number };
+  expectedActions: number;
+  detectedActions: number;
+  matchedActions: number;
+  missedActions: Array<{ sequenceId: string; timestamp: number; arm: string; label: BoxingActionLabel }>;
+  extraActions: Array<{ sequenceId: string; timestamp: number; arm: string; label: BoxingActionLabel }>;
 };
 
 export function evaluateSequences(
@@ -32,9 +37,14 @@ export function evaluateSequences(
   const annotations = new Map(input.annotations.map((annotation) => [annotation.sequenceId, annotation]));
   const missedJabs: EvaluationReport["missedJabs"] = [];
   const extraJabs: EvaluationReport["extraJabs"] = [];
+  const missedActions: EvaluationReport["missedActions"] = [];
+  const extraActions: EvaluationReport["extraActions"] = [];
   let expectedJabs = 0;
   let detectedJabs = 0;
   let matchedJabs = 0;
+  let expectedActions = 0;
+  let detectedActions = 0;
+  let matchedActions = 0;
   let movementCount = 0;
   let classifiedMovements = 0;
   let correctlyClassifiedMovements = 0;
@@ -45,7 +55,7 @@ export function evaluateSequences(
     const annotation = annotations.get(sequence.id);
     if (!annotation) throw new Error(`Missing annotation for sequence: ${sequence.id}`);
     const pipeline = new BoxingDetectionPipeline(thresholds);
-    const events: JabEvent[] = [];
+    const events: PunchEvent[] = [];
     const uncertain: UnclassifiedMovement[] = [];
     const updates = sequence.frames.map((frame) => {
       const update = pipeline.process(frame);
@@ -54,10 +64,12 @@ export function evaluateSequences(
       return update;
     });
 
-    const expectedJabLabels = [...annotation.jabs].sort((a, b) => a.timestamp - b.timestamp);
-    const expectedMovements = annotation.movements ?? expectedJabLabels.map((jab) => ({ ...jab, expected: "jab" as const }));
+    const legacyJabs = annotation.jabs ?? [];
+    const expectedJabLabels = [...legacyJabs].sort((a, b) => a.timestamp - b.timestamp);
+    const expectedActionLabels = (annotation.actions ?? expectedJabLabels.map((jab) => ({ ...jab, label: "1" as const }))).sort((a, b) => a.timestamp - b.timestamp);
+    const expectedMovements = annotation.movements ?? expectedActionLabels.map((action) => ({ timestamp: action.timestamp, arm: action.arm, expected: action.label }));
     const predictions: MovementPrediction[] = [
-      ...events.map((event) => ({ timestamp: event.timestamp, arm: event.arm, label: "jab" as const })),
+      ...events.map((event) => ({ timestamp: event.timestamp, arm: event.arm, label: event.label })),
       ...uncertain.map((movement) => ({ timestamp: movement.timestamp, arm: movement.arm, label: "unclassified" as const })),
     ];
 
@@ -67,26 +79,30 @@ export function evaluateSequences(
       const predictionIndex = nearestPrediction(predictions, usedMovements, expected, timingToleranceMs);
       if (predictionIndex < 0) continue;
       usedMovements.add(predictionIndex);
-      if (predictions[predictionIndex].label === "jab") {
+      if (predictions[predictionIndex].label !== "unclassified") {
         classifiedMovements++;
-        if (expected.expected === "jab") correctlyClassifiedMovements++;
+        if (predictions[predictionIndex].label === (expected.expected === "jab" ? "1" : expected.expected)) correctlyClassifiedMovements++;
       }
     }
 
-    expectedJabs += expectedJabLabels.length;
-    detectedJabs += events.length;
-    const usedJabs = new Set<number>();
-    for (const jab of expectedJabLabels) {
-      const eventIndex = nearestPrediction(events, usedJabs, jab, timingToleranceMs);
-      if (eventIndex < 0) missedJabs.push({ sequenceId: sequence.id, ...jab });
+    expectedActions += expectedActionLabels.length;
+    detectedActions += events.length;
+    const usedActions = new Set<number>();
+    for (const action of expectedActionLabels) {
+      const eventIndex = nearestActionPrediction(events, usedActions, action, timingToleranceMs);
+      if (eventIndex < 0) missedActions.push({ sequenceId: sequence.id, ...action });
       else {
-        usedJabs.add(eventIndex);
-        matchedJabs++;
+        usedActions.add(eventIndex);
+        matchedActions++;
+        if (events[eventIndex].label === "1") matchedJabs++;
       }
     }
     events.forEach((event, index) => {
-      if (!usedJabs.has(index)) extraJabs.push({ sequenceId: sequence.id, timestamp: event.timestamp, arm: event.arm });
+      if (!usedActions.has(index)) extraActions.push({ sequenceId: sequence.id, timestamp: event.timestamp, arm: event.arm, label: event.label });
     });
+    expectedJabs += expectedActionLabels.filter((action) => action.label === "1").length;
+    detectedJabs += events.filter((event) => event.label === "1").length;
+    missedJabs.push(...missedActions.filter((action) => action.sequenceId === sequence.id && action.label === "1").map(({ sequenceId, timestamp, arm }) => ({ sequenceId, timestamp, arm })));
 
     const stanceSamples = annotation.stances ?? (annotation.stance ? [{ timestamp: sequence.frames[0]?.timestamp ?? 0, stance: annotation.stance }] : []);
     for (const expected of stanceSamples) {
@@ -103,13 +119,14 @@ export function evaluateSequences(
   const recall = expectedJabs === 0 ? 1 : matchedJabs / expectedJabs;
   return {
     sequenceCount: input.sequences.length, expectedJabs, detectedJabs, matchedJabs,
-    missedJabs, extraJabs, precision, recall,
+    missedJabs, extraJabs: extraActions.filter((action) => action.label === "1").map(({ sequenceId, timestamp, arm }) => ({ sequenceId, timestamp, arm })), precision, recall,
     f1: precision + recall === 0 ? 0 : 2 * precision * recall / (precision + recall),
     movementCount, classifiedMovements,
     correctlyClassifiedMovements,
     classificationCoverage: movementCount ? classifiedMovements / movementCount : 1,
     classificationAccuracy: classifiedMovements ? correctlyClassifiedMovements / classifiedMovements : 1,
     stance: { expected: stanceExpected, correct: stanceCorrect, accuracy: stanceExpected ? stanceCorrect / stanceExpected : 1 },
+    expectedActions, detectedActions, matchedActions, missedActions, extraActions,
   };
 }
 
@@ -199,6 +216,20 @@ function nearestPrediction<T extends { timestamp: number; arm: string }>(
   return predictions.reduce((bestIndex, prediction, index) => {
     const distance = Math.abs(prediction.timestamp - expected.timestamp);
     if (used.has(index) || prediction.arm !== expected.arm || distance > toleranceMs) return bestIndex;
+    if (bestIndex < 0 || distance < Math.abs(predictions[bestIndex].timestamp - expected.timestamp)) return index;
+    return bestIndex;
+  }, -1);
+}
+
+function nearestActionPrediction(
+  predictions: Array<{ timestamp: number; arm: string; label: BoxingActionLabel }>,
+  used: Set<number>,
+  expected: { timestamp: number; arm: string; label: BoxingActionLabel },
+  toleranceMs: number,
+) {
+  return predictions.reduce((bestIndex, prediction, index) => {
+    const distance = Math.abs(prediction.timestamp - expected.timestamp);
+    if (used.has(index) || prediction.arm !== expected.arm || prediction.label !== expected.label || distance > toleranceMs) return bestIndex;
     if (bestIndex < 0 || distance < Math.abs(predictions[bestIndex].timestamp - expected.timestamp)) return index;
     return bestIndex;
   }, -1);

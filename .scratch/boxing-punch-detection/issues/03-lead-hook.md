@@ -4,10 +4,10 @@
 
 **Blocked by:** 01: Extend jab detection to body jabs.
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] The detector distinguishes a recognizable arcing hook path from a straight punch, uppercut, and unrelated arm extension.
-- [ ] It resolves the lead hand from stance context, preserves anatomical arm identity, and captures stance context when the action begins.
-- [ ] Pose-relative target evidence determines `3b`; body lowering may support that label but is not sufficient alone. An unclear target defaults to `3`.
-- [ ] The event appears in the live prototype and timestamped sequence evaluation; tests cover orthodox and southpaw stances, both anatomical arms, target ambiguity, repeated actions, recovery, and missing frames.
-- [ ] Contact, return to guard, fixed camera angle, combo labels, and technique-quality scoring are not required.
+- [x] The detector distinguishes a recognizable arcing hook path from a straight punch, uppercut, and unrelated arm extension.
+- [x] It resolves the lead hand from stance context, preserves anatomical arm identity, and captures stance context when the action begins.
+- [x] Pose-relative target evidence determines `3b`; body lowering may support that label but is not sufficient alone. An unclear target defaults to `3`.
+- [x] The event appears in the live prototype and timestamped sequence evaluation; tests cover orthodox and southpaw stances, both anatomical arms, target ambiguity, repeated actions, recovery, and missing frames.
+- [x] Contact, return to guard, fixed camera angle, combo labels, and technique-quality scoring are not required.
