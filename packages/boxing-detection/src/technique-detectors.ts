@@ -37,7 +37,10 @@ function hasHookArc(path: PunchPathEvidence, minimumMovement: number) {
 }
 
 function hasUpwardPath(path: PunchPathEvidence, minimumMovement: number) {
-  return path.upward >= minimumMovement && path.upward >= path.forward * 0.85 && path.upward >= path.lateral * 0.55;
+  return path.movementFrames >= 2
+    && path.upward >= minimumMovement
+    && path.upward >= path.forward * 0.85
+    && path.upward >= path.lateral * 0.55;
 }
 
 function hasStraightPath(path: PunchPathEvidence, minimumForward: number) {

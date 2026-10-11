@@ -154,6 +154,12 @@ describe("boxing detection pipeline", () => {
       const hook = pipeline.process(trajectoryPose(150, side, { x: 0.65, y: 0.58, z: 0 }, true));
       expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
     }
+    const compactHook = new BoxingDetectionPipeline();
+    compactHook.process(pose(0));
+    compactHook.process(trajectoryPose(50, "left", { x: 0.55, y: 0.38, z: 0 }));
+    compactHook.process(trajectoryPose(100, "left", { x: 0.7, y: 0.38, z: 0 }));
+    const compact = compactHook.process(trajectoryPose(150, "left", { x: 0.65, y: 0.38, z: 0 }));
+    expect(compact.events[0]).toMatchObject({ type: "hook", label: "3" });
   });
 
   it("recognizes an upward rear-hand path and labels its body target", () => {
@@ -163,6 +169,12 @@ describe("boxing detection pipeline", () => {
     pipeline.process(trajectoryPose(50, "right", { x: 0.55, y: 0.59, z: 0 }));
     const uppercut = pipeline.process(trajectoryPose(100, "right", { x: 0.55, y: 0.52, z: 0 }, true));
     expect(uppercut.events[0]).toMatchObject({ type: "uppercut", label: "6b", arm: "right" });
+
+    const compactUppercut = new BoxingDetectionPipeline();
+    compactUppercut.process(trajectoryPose(0, "right", { x: 0.55, y: 0.68, z: 0 }));
+    compactUppercut.process(trajectoryPose(50, "right", { x: 0.55, y: 0.59, z: 0 }));
+    const compact = compactUppercut.process(trajectoryPose(100, "right", { x: 0.55, y: 0.52, z: 0 }));
+    expect(compact.events[0]).toMatchObject({ type: "uppercut", label: "6b" });
 
     const leadPipeline = new BoxingDetectionPipeline();
     leadPipeline.process(trajectoryPose(0, "left", { x: 0.45, y: 0.68, z: 0 }));

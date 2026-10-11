@@ -65,11 +65,13 @@ export class PunchDetector {
     }
 
     const deltaFromRetraction = active.movementStartExtension === null ? evidence.extensionDelta : evidence.extension - active.movementStartExtension;
-    if (!active.extended && active.movementStartExtension !== null && evidence.extension >= this.thresholds.minimumExtension && deltaFromRetraction >= this.thresholds.minimumExtensionDelta) {
+    const capturedStance = active.stanceAtStart ?? stance;
+    const lead = isLead(evidence.side, capturedStance);
+    const pathType = active.movementStartExtension === null ? null : this.detectTechnique(active, lead);
+    const isPathDrivenTechnique = pathType === "hook" || pathType === "uppercut";
+    const reachedExtension = evidence.extension >= this.thresholds.minimumExtension && deltaFromRetraction >= this.thresholds.minimumExtensionDelta;
+    if (!active.extended && active.movementStartExtension !== null && (isPathDrivenTechnique || reachedExtension)) {
       active.extended = true;
-      const capturedStance = active.stanceAtStart ?? stance;
-      const lead = isLead(evidence.side, capturedStance);
-      const pathType = this.detectTechnique(active, lead);
       if (pathType) {
         const type = asPunchType(pathType, lead);
         const bodyTarget = evidence.targetPosition !== null && evidence.targetPosition >= 0.68;
