@@ -1,0 +1,68 @@
+.boxing-check-card {
+  margin-top: 10px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.boxing-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.boxing-section-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.04em;
+}
+.boxing-test-duration {
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+.boxing-test-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid #343d30;
+  border-radius: 13px;
+  background: #1c221b;
+}
+.boxing-step-number {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #11160c;
+  background: var(--accent);
+  font: 12px var(--mono);
+}
+.boxing-test-step strong {
+  font-size: 12px;
+}
+.boxing-test-step p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.boxing-test-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.boxing-test-actions .secondary-button {
+  min-height: 38px;
+}
+.boxing-test-note {
+  min-height: 15px;
+  margin: 10px 0 0;
+  color: #98a18f;
+  font-size: 10px;
+  line-height: 1.45;
+}

@@ -39,6 +39,10 @@ The current directories are scaffolding, not finished modules. The backend is pl
 
 Put small, deterministic fixtures for automated tests in `test_data/fixtures/`; these can be committed with the code that uses them. Keep large local recordings and other heavy test media in `test_data/media/`, which is ignored by Git.
 
+## Linting
+
+The phone browser pose-tracking prototype uses Biome as a local development dependency. From `prototypes/phone_browser_pose_tracking/`, run `npm run lint` to lint its source files. See the [prototype README](prototypes/phone_browser_pose_tracking/README.md) for setup details. Other prototypes can choose their own linting tools and configuration.
+
 ## Decisions still open
 
 - Prototype results will determine live-frame versus local-video processing, model asset bundling and caching, and acceptable tracking and feedback responsiveness.
@@ -51,3 +55,7 @@ Put small, deterministic fixtures for automated tests in `test_data/fixtures/`; 
 - [Architecture specification](project_context_architecture_specification.md) — original broader architecture proposal; it includes future direction as well as ideas superseded or deferred for V0.
 - [Architecture grill handoff](architecture-grill-handoff.md) — current V0 decisions and explicitly open questions.
 - [Product glossary](GLOSSARY.md) — preferred terms such as *drill*, *training session*, *guest*, and *leaderboard result*.
+
+## Detector design
+
+The agreed jab-detection direction is recorded separately in [detector-design-handoff.md](detector-design-handoff.md); implementation details and thresholds remain open.

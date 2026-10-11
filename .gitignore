@@ -28,6 +28,7 @@ Thumbs.db
 
 # Local prototype environment
 /prototypes/.venv/
+/prototypes/**/public/
 
 # Large local-only test media; keep the directory scaffold in Git
 /test_data/media/*
