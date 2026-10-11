@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Landmark, PoseFrame } from "../../pose-types";
-import { evaluateSequences } from "./evaluate";
+import type { Landmark, PoseFrame } from "@onetwopivot/boxing-detection";
+import { evaluateSequences } from "@onetwopivot/boxing-detection";
 
 function makeFrame(timestamp: number, extended: boolean): PoseFrame {
   const landmarks: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 1 }));

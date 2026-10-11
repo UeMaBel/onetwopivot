@@ -48,7 +48,17 @@ The first version detects actions; it does not score jab quality or assert that 
 - Test externally visible behavior for lead-hand jab recognition, anatomical arm identity, detected versus assumed stance context, stance changes during an action, recovery independent of jab detection, repeated forward actions, poor but recognizable form, unclassified movement, and tolerated missing frames.
 - Include cases where stance is uncertain after a certain stance and where no certain stance has ever been observed.
 - A good test asserts the action and evidence the caller receives; it does not assert private angles, helper calls, or implementation-specific state transitions.
-- The current prototype has no test runner, test script, or existing detector tests. Establish the smallest test setup needed for the pipeline seam; there is no prior detector-test pattern to follow.
+- Keep fast black-box detector tests in the prototype's Vitest suite. Local video benchmarks are a separate explicit command because they require user-provided media and a browser runtime.
+
+## Local Video Benchmark
+
+- Store reusable detector logic in `packages/boxing-detection`; keep video decoding and browser orchestration in the prototype benchmark tool.
+- Pair each local video with a same-base-name JSON sidecar containing stance, tuning/validation split, whole-clip action counts, and an extensible metadata object.
+- Process every decoded video frame with its presentation timestamp. Count-level labels are sufficient for short clips; per-action timestamps are deferred.
+- Keep videos, sidecars, pose caches, and reports local under ignored `test_data/media/`.
+- Cache pose frames against video and model hashes, MediaPipe version, and frame-sampling policy so threshold variants can be compared without rerunning pose inference.
+- Report expected and detected counts per action, total unclassified detections, and stance results. Do not imply event-level precision or timing accuracy from count-only labels.
+- Reserve separate tuning and validation splits; never use validation clips to choose thresholds.
 
 ## Out of Scope
 

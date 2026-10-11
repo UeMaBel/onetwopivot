@@ -1,4 +1,4 @@
-import type { PoseFrame } from "../../pose-types";
+import type { PoseFrame } from "./types";
 import { ArmObserver } from "./arm-observer";
 import type { BoxingThresholds, BoxingPipelineUpdate, ArmSide } from "./contracts";
 import { JabDetector } from "./jab-detector";

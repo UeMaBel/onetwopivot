@@ -1,4 +1,4 @@
-import type { PoseFrame } from "../../pose-types";
+import type { PoseFrame } from "./types";
 import type { ArmEvidence, ArmSide } from "./contracts";
 import type { BoxingThresholds } from "./contracts";
 

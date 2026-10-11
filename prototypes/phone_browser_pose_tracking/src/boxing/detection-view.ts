@@ -1,6 +1,5 @@
-import type { BoxingPipelineUpdate, JabEvent } from "../detectors/boxing/contracts";
-import type { BoxingThresholds } from "../detectors/boxing/contracts";
-import { evaluateSequences, type EvaluationInput, type EvaluationReport } from "../detectors/boxing/evaluate";
+import type { BoxingPipelineUpdate, JabEvent, BoxingThresholds } from "@onetwopivot/boxing-detection";
+import { evaluateSequences, type EvaluationInput, type EvaluationReport } from "@onetwopivot/boxing-detection";
 import "./detection.css";
 
 export function mountDetectionView(thresholds: BoxingThresholds) {

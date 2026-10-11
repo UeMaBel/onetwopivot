@@ -33,7 +33,7 @@ test_data/
   media/                  Large local test media; ignored by Git
 ```
 
-The current directories are scaffolding, not finished modules. The backend is planned as one deployable service. Redis and Celery should be available as optional services and are not required by the initial user flow.
+The current directories are scaffolding, not finished modules. The backend is planned as one deployable service. Redis and Celery should be available as optional services and are not required by the initial user flow. The reusable boxing detector is in `packages/boxing-detection`; the prototype's local video benchmark and usage notes are in `prototypes/phone_browser_pose_tracking/`.
 
 ## Test data
 

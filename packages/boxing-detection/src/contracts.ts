@@ -1,4 +1,6 @@
-import type { Landmark, PoseFrame } from "../../pose-types";
+import type { Landmark, PoseFrame } from "./types";
+import type { BoxingActionLabel } from "./labels";
+export type { BoxingActionLabel, DefenseActionLabel, PunchLabel } from "./labels";
 
 export type ArmSide = "left" | "right";
 export type Stance = "orthodox" | "southpaw";
@@ -29,6 +31,7 @@ export type ArmEvidence = {
 export type JabEvent = {
   id: number;
   type: "jab";
+  label: "1";
   timestamp: number;
   arm: ArmSide;
   stance: StanceContext;
@@ -81,4 +84,39 @@ export type SequenceAnnotation = {
   stances?: Array<{ timestamp: number; stance: Stance }>;
   jabs: Array<{ timestamp: number; arm: ArmSide }>;
   movements?: Array<{ timestamp: number; arm: ArmSide; expected: "jab" | "unclassified" }>;
+};
+
+export type BenchmarkSplit = "tuning" | "validation";
+
+export type VideoAnnotation = {
+  version: 1;
+  video: string;
+  stance: Stance;
+  split: BenchmarkSplit;
+  actions: Partial<Record<BoxingActionLabel, number>>;
+  metadata: Record<string, unknown>;
+};
+
+export type CountBenchmarkClip = {
+  id: string;
+  frames: PoseFrame[];
+  annotation: VideoAnnotation;
+};
+
+export type ClipCountReport = {
+  id: string;
+  split: BenchmarkSplit;
+  stance: { expected: Stance; detected: Stance | null; correct: boolean };
+  expectedActions: Partial<Record<BoxingActionLabel, number>>;
+  detectedActions: Partial<Record<BoxingActionLabel, number>>;
+  unclassifiedDetections: number;
+};
+
+export type CountBenchmarkReport = {
+  version: 1;
+  split: BenchmarkSplit | "all";
+  clips: ClipCountReport[];
+  actions: Partial<Record<BoxingActionLabel, { expected: number; detected: number; difference: number }>>;
+  unclassifiedDetections: number;
+  stance: { expected: number; detected: number; correct: number; accuracy: number };
 };

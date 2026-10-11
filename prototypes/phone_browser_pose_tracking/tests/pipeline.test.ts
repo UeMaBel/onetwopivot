@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Landmark, PoseFrame } from "../../pose-types";
-import { BoxingDetectionPipeline } from "./pipeline";
-import { defaultBoxingThresholds } from "./thresholds";
+import type { Landmark, PoseFrame } from "@onetwopivot/boxing-detection";
+import { BoxingDetectionPipeline, defaultBoxingThresholds } from "@onetwopivot/boxing-detection";
 
 function pose(timestamp: number, leftExtended = false, rightExtended = false, stance: "front" | "orthodox" | "southpaw" = "front"): PoseFrame {
   const landmarks: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 1 }));

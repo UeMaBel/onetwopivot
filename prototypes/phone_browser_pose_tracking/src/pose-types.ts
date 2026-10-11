@@ -1,9 +1,6 @@
-export type Landmark = { x: number; y: number; z: number; visibility?: number };
+import type { Landmark } from "@onetwopivot/boxing-detection";
 
-export type PoseFrame = {
-  timestamp: number;
-  landmarks: Landmark[] | null;
-};
+export type { Landmark, PoseFrame } from "@onetwopivot/boxing-detection";
 
 export type WorkerReply =
   | { type: "ready" }

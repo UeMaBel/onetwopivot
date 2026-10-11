@@ -50,7 +50,7 @@ export class JabDetector {
       if (lead) {
         if (active.forwardMovementSinceStart >= this.thresholds.minimumForwardMovement) {
           const event: JabEvent = {
-            id: this.nextId++, type: "jab", timestamp: evidence.timestamp, arm: evidence.side,
+            id: this.nextId++, type: "jab", label: "1", timestamp: evidence.timestamp, arm: evidence.side,
             stance: capturedStance, confidence,
             evidence: { extension: evidence.extension, extensionDelta: deltaFromRetraction, movement: evidence.movement, forwardMovement: active.forwardMovementSinceStart },
             recovery: "pending",

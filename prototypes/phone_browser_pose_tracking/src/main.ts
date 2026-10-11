@@ -6,7 +6,7 @@ import type { Landmark, WorkerReply } from "./pose-types";
 import { TrackingMetrics } from "./tracking-metrics";
 import { mountBoxingCheck } from "./boxing/boxing-view";
 import { BoxingCheck } from "./boxing/boxing-check";
-import { BoxingDetectionPipeline } from "./detectors/boxing/pipeline";
+import { BoxingDetectionPipeline } from "@onetwopivot/boxing-detection";
 import { mountDetectionView } from "./boxing/detection-view";
 
 const view = mountApp();

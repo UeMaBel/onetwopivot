@@ -1,4 +1,4 @@
-import type { PoseFrame } from "../../pose-types";
+import type { PoseFrame } from "./types";
 import type { Stance, StanceContext, StanceObservation } from "./contracts";
 import type { BoxingThresholds } from "./contracts";
 
@@ -20,7 +20,8 @@ export class StanceDetector {
       const torsoWidth = Math.max(shoulderWidth, hipWidth, 0.001);
       const depthDifference = leftShoulder.z - rightShoulder.z;
       if (Math.abs(depthDifference) / torsoWidth >= this.thresholds.stanceDepthRatio) {
-        // In a side-on stance, the shoulder nearer the camera identifies the lead side.
+        // MediaPipe's relative z is smaller for points nearer the camera.
+        // In a side-on stance, the nearer shoulder identifies the lead side.
         current = depthDifference < 0 ? "orthodox" : "southpaw";
       }
     }

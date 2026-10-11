@@ -1,4 +1,5 @@
-import type { BoxingThresholds, JabEvent, PoseSequence, SequenceAnnotation, UnclassifiedMovement } from "./contracts";
+import type { BoxingThresholds, CountBenchmarkClip, CountBenchmarkReport, JabEvent, PoseSequence, SequenceAnnotation, UnclassifiedMovement } from "./contracts";
+import type { BoxingActionLabel, BenchmarkSplit } from "./contracts";
 import { BoxingDetectionPipeline } from "./pipeline";
 import { defaultBoxingThresholds } from "./thresholds";
 
@@ -109,6 +110,83 @@ export function evaluateSequences(
     classificationCoverage: movementCount ? classifiedMovements / movementCount : 1,
     classificationAccuracy: classifiedMovements ? correctlyClassifiedMovements / classifiedMovements : 1,
     stance: { expected: stanceExpected, correct: stanceCorrect, accuracy: stanceExpected ? stanceCorrect / stanceExpected : 1 },
+  };
+}
+
+export function evaluateCountBenchmark(
+  clips: CountBenchmarkClip[],
+  thresholds: BoxingThresholds = defaultBoxingThresholds,
+  split: BenchmarkSplit | "all" = "all",
+): CountBenchmarkReport {
+  const selected = clips.filter((clip) => split === "all" || clip.annotation.split === split);
+  const reports: CountBenchmarkReport["clips"] = [];
+  const expectedTotals: Partial<Record<BoxingActionLabel, number>> = {};
+  const detectedTotals: Partial<Record<BoxingActionLabel, number>> = {};
+  let expectedStances = 0;
+  let detectedStances = 0;
+  let correctStances = 0;
+  let totalUnclassified = 0;
+
+  for (const clip of selected) {
+    const pipeline = new BoxingDetectionPipeline(thresholds);
+    const detectedActions: Partial<Record<BoxingActionLabel, number>> = {};
+    let unclassifiedDetections = 0;
+    let detectedStance: CountBenchmarkReport["clips"][number]["stance"]["detected"] = null;
+
+    for (const frame of clip.frames) {
+      const update = pipeline.process(frame);
+      detectedStance ??= update.stance.current;
+      unclassifiedDetections += update.unclassified.length;
+      for (const event of update.events) {
+        detectedActions[event.label] = (detectedActions[event.label] ?? 0) + 1;
+      }
+    }
+
+    const correctStance = detectedStance === clip.annotation.stance;
+    expectedStances++;
+    if (detectedStance !== null) detectedStances++;
+    if (correctStance) correctStances++;
+    totalUnclassified += unclassifiedDetections;
+
+    const actionLabels = new Set<BoxingActionLabel>([
+      ...Object.keys(clip.annotation.actions) as BoxingActionLabel[],
+      ...Object.keys(detectedActions) as BoxingActionLabel[],
+    ]);
+    for (const label of actionLabels) {
+      expectedTotals[label] = (expectedTotals[label] ?? 0) + (clip.annotation.actions[label] ?? 0);
+      detectedTotals[label] = (detectedTotals[label] ?? 0) + (detectedActions[label] ?? 0);
+    }
+
+    reports.push({
+      id: clip.id,
+      split: clip.annotation.split,
+      stance: { expected: clip.annotation.stance, detected: detectedStance, correct: correctStance },
+      expectedActions: clip.annotation.actions,
+      detectedActions,
+      unclassifiedDetections,
+    });
+  }
+
+  const actionLabels = new Set<BoxingActionLabel>([...Object.keys(expectedTotals) as BoxingActionLabel[], ...Object.keys(detectedTotals) as BoxingActionLabel[]]);
+  const actions: CountBenchmarkReport["actions"] = {};
+  for (const label of actionLabels) {
+    const expected = expectedTotals[label] ?? 0;
+    const detected = detectedTotals[label] ?? 0;
+    actions[label] = { expected, detected, difference: detected - expected };
+  }
+
+  return {
+    version: 1,
+    split,
+    clips: reports,
+    actions,
+    unclassifiedDetections: totalUnclassified,
+    stance: {
+      expected: expectedStances,
+      detected: detectedStances,
+      correct: correctStances,
+      accuracy: expectedStances === 0 ? 1 : correctStances / expectedStances,
+    },
   };
 }
 

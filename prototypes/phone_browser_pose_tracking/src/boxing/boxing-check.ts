@@ -1,6 +1,6 @@
 import { boxingProtocol } from "./boxing-config";
 import type { BoxingCheckView } from "./boxing-view";
-import type { PoseFrame } from "../pose-types";
+import type { PoseFrame } from "@onetwopivot/boxing-detection";
 
 export class BoxingCheck {
   private phase: "guard" | "jabs" | "return" | null = null;

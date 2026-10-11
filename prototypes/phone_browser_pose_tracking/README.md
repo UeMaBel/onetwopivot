@@ -59,7 +59,7 @@ To switch variants later, add the corresponding model asset and update `poseMode
 
 ## Boxing detection
 
-The on-device boxing pipeline consumes timestamped pose frames shared from the live pose worker. It exposes stance context, separate left and right arm observations, jab events, unclassified extensions, and recovery updates. Thresholds are collected in `src/detectors/boxing/thresholds.ts` and can also be adjusted in the live detection panel. These values are provisional until they are tuned from phone observations.
+The on-device boxing pipeline consumes timestamped pose frames shared from the live pose worker. It exposes stance context, separate left and right arm observations, jab events, unclassified extensions, and recovery updates. Thresholds are collected in the shared `packages/boxing-detection` package and can also be adjusted in the live detection panel. These values are provisional until they are tuned from phone observations.
 
 Jab events are reported when a lead arm extension crosses the configured movement and extension thresholds and the wrist moves toward the phone camera. Lateral extensions without forward movement remain unclassified. This direction cue reflects the face-the-phone experiment setup; it will need review if the camera angle changes. Recovery is attached as separate event status; loss of tracking marks recovery incomplete without removing the jab. Rear-hand extensions remain unclassified. The confidence value is a provisional heuristic, not a calibrated probability.
 
@@ -97,6 +97,43 @@ Each non-null `landmarks` array uses MediaPipe's landmark order and should conta
 The one-point landmark array in the abbreviated JSON example illustrates the object shape only; real input frames need all 33 landmarks.
 
 Run `npm test` for the black-box pipeline and evaluator tests, `npm run lint` for linting, and `npm run build` for type checking and a production build.
+
+## Local video benchmark
+
+The benchmark processes local videos through the same MediaPipe pose worker and shared boxing detector used by the prototype. Video frames are decoded locally, pose results are cached next to the source video, and each run writes a JSON report under `test_data/media/runs/`. Nothing is uploaded.
+
+1. Install the prototype dependencies, prepare its local MediaPipe assets, and install the benchmark browser once:
+
+   ```sh
+   npm install
+   npm run assets
+   npm run install-benchmark-browser
+   ```
+
+2. Put each video and same-base-name JSON sidecar in a directory under the repository's ignored `test_data/media/` folder. For example, `test_data/media/round-01.mp4` uses `test_data/media/round-01.json`:
+
+   ```json
+   {
+     "version": 1,
+     "video": "round-01.mp4",
+     "stance": "orthodox",
+     "split": "tuning",
+     "actions": { "1": 5, "2": 5 },
+     "metadata": {}
+   }
+   ```
+
+   Counts describe the whole clip; timestamp labels are not needed. The `metadata` object is reserved for future use. Use `tuning` clips while adjusting thresholds and keep `validation` clips untouched for a separate check. See the [boxing action cheatsheet](BOXING_ACTIONS_CHEATSHEET.md) for labels.
+
+3. Run the benchmark from this directory:
+
+   ```sh
+   npm run benchmark -- --dataset ../../test_data/media
+   ```
+
+   Optionally use `--split tuning` or `--split validation`, `--thresholds tools/thresholds/default.json`, `--baseline path/to/report.json`, or `--refresh-poses`. Threshold profiles have `version: 1`, a `name`, and a `thresholds` object containing every field from `defaultBoxingThresholds`; copy the included default profile to make a named variant. Reports show expected/detected counts and their difference per label, unclassified detections, stance results, and cache use. They compare total counts, not individual punch timing or precision/recall.
+
+The benchmark requires the bundled FFmpeg development dependency and headless Chromium (installed by the setup command). The `test` command remains a fast, media-free automated suite; the benchmark command is the explicit local video run. The detector core lives in `packages/boxing-detection` so the main application can consume it without importing the prototype runner.
 
 ## Status
 
