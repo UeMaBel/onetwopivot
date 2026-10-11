@@ -1,5 +1,6 @@
 import type { ArmEvidence, ArmSide, PunchEvent, RecoveryUpdate, StanceContext, UnclassifiedMovement } from "./contracts";
 import type { BoxingThresholds } from "./contracts";
+import { asPunchType, HookDetector, JabDetector, RearStraightDetector, UppercutDetector } from "./technique-detectors";
 
 type ActiveArm = {
   extended: boolean;
@@ -10,14 +11,20 @@ type ActiveArm = {
   upward: number;
   movementFrames: number;
   idleFrames: number;
+  lastLateralDirection: number;
+  lateralTurns: number;
   eventId: number | null;
   stanceAtStart: StanceContext | null;
 };
-const emptyArm = (): ActiveArm => ({ extended: false, lastExtension: null, movementStartExtension: null, forward: 0, lateral: 0, upward: 0, movementFrames: 0, idleFrames: 0, eventId: null, stanceAtStart: null });
+const emptyArm = (): ActiveArm => ({ extended: false, lastExtension: null, movementStartExtension: null, forward: 0, lateral: 0, upward: 0, movementFrames: 0, idleFrames: 0, lastLateralDirection: 0, lateralTurns: 0, eventId: null, stanceAtStart: null });
 
 export class PunchDetector {
   private arms: Record<ArmSide, ActiveArm> = { left: emptyArm(), right: emptyArm() };
   private nextId = 1;
+  private readonly jab = new JabDetector();
+  private readonly rearStraight = new RearStraightDetector();
+  private readonly hook = new HookDetector();
+  private readonly uppercut = new UppercutDetector();
 
   constructor(private readonly thresholds: BoxingThresholds) {}
 
@@ -39,11 +46,15 @@ export class PunchDetector {
       active.movementStartExtension = Math.min(active.lastExtension ?? evidence.extension, evidence.extension);
       active.stanceAtStart = stance;
       active.forward = 0; active.lateral = 0; active.upward = 0; active.movementFrames = 0;
+      active.lastLateralDirection = 0; active.lateralTurns = 0;
     }
     if (!active.extended && active.movementStartExtension !== null) {
       active.forward += Math.max(0, evidence.forwardMovement);
       active.lateral += Math.abs(evidence.lateralMovement);
       active.upward += Math.max(0, evidence.upwardMovement);
+      const lateralDirection = Math.sign(evidence.lateralMovement);
+      if (lateralDirection !== 0 && active.lastLateralDirection !== 0 && lateralDirection !== active.lastLateralDirection) active.lateralTurns++;
+      if (lateralDirection !== 0) active.lastLateralDirection = lateralDirection;
       if (evidence.movement > 0.015) { active.movementFrames++; active.idleFrames = 0; }
       else if (++active.idleFrames >= 3) {
         active.movementStartExtension = null;
@@ -58,9 +69,9 @@ export class PunchDetector {
       active.extended = true;
       const capturedStance = active.stanceAtStart ?? stance;
       const lead = isLead(evidence.side, capturedStance);
-      const pathType = classifyPath(active, this.thresholds.minimumForwardMovement);
+      const pathType = this.detectTechnique(active, lead);
       if (pathType) {
-        const type = pathType === "straight" ? (lead ? "jab" : "straight") : pathType;
+        const type = asPunchType(pathType, lead);
         const bodyTarget = evidence.targetPosition !== null && evidence.targetPosition >= 0.68;
         const label = labelFor(type, lead, bodyTarget);
         const confidence = Math.min(0.99, Math.max(0.5, 0.55 + deltaFromRetraction * 0.45 + Math.max(0, active.forward)));
@@ -95,17 +106,18 @@ export class PunchDetector {
   }
 
   reset() { this.arms = { left: emptyArm(), right: emptyArm() }; this.nextId = 1; }
+
+  private detectTechnique(active: ActiveArm, lead: boolean) {
+    const path = active;
+    const minimum = this.thresholds.minimumForwardMovement;
+    return this.uppercut.detect(path, minimum)
+      ?? this.hook.detect(path, minimum)
+      ?? (lead ? this.jab.detect(path, minimum) : this.rearStraight.detect(path, minimum));
+  }
 }
 
 function isLead(side: ArmSide, stance: StanceContext) {
   return (stance.stance === "orthodox" && side === "left") || (stance.stance === "southpaw" && side === "right");
-}
-
-function classifyPath(active: ActiveArm, minimumForward: number): "straight" | "hook" | "uppercut" | null {
-  if (active.upward >= minimumForward && active.upward >= active.forward * 0.85 && active.upward >= active.lateral * 0.55) return "uppercut";
-  if (active.movementFrames >= 2 && active.lateral >= minimumForward && active.forward < active.lateral * 0.25) return "hook";
-  if (active.forward >= minimumForward) return "straight";
-  return null;
 }
 
 function labelFor(type: PunchEvent["type"], lead: boolean, body: boolean): PunchEvent["label"] {

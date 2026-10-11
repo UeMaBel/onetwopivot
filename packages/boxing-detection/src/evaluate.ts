@@ -89,20 +89,20 @@ export function evaluateSequences(
     detectedActions += events.length;
     const usedActions = new Set<number>();
     for (const action of expectedActionLabels) {
-      const eventIndex = nearestActionPrediction(events, usedActions, action, timingToleranceMs);
+      const eventIndex = nearestPrediction(events, usedActions, action, timingToleranceMs);
       if (eventIndex < 0) missedActions.push({ sequenceId: sequence.id, ...action });
       else {
         usedActions.add(eventIndex);
         matchedActions++;
-        if (events[eventIndex].label === "1") matchedJabs++;
+        if (isJabLabel(events[eventIndex].label)) matchedJabs++;
       }
     }
     events.forEach((event, index) => {
       if (!usedActions.has(index)) extraActions.push({ sequenceId: sequence.id, timestamp: event.timestamp, arm: event.arm, label: event.label });
     });
-    expectedJabs += expectedActionLabels.filter((action) => action.label === "1").length;
-    detectedJabs += events.filter((event) => event.label === "1").length;
-    missedJabs.push(...missedActions.filter((action) => action.sequenceId === sequence.id && action.label === "1").map(({ sequenceId, timestamp, arm }) => ({ sequenceId, timestamp, arm })));
+    expectedJabs += expectedActionLabels.filter((action) => isJabLabel(action.label)).length;
+    detectedJabs += events.filter((event) => isJabLabel(event.label)).length;
+    missedJabs.push(...missedActions.filter((action) => action.sequenceId === sequence.id && isJabLabel(action.label)).map(({ sequenceId, timestamp, arm }) => ({ sequenceId, timestamp, arm })));
 
     const stanceSamples = annotation.stances ?? (annotation.stance ? [{ timestamp: sequence.frames[0]?.timestamp ?? 0, stance: annotation.stance }] : []);
     for (const expected of stanceSamples) {
@@ -119,7 +119,7 @@ export function evaluateSequences(
   const recall = expectedJabs === 0 ? 1 : matchedJabs / expectedJabs;
   return {
     sequenceCount: input.sequences.length, expectedJabs, detectedJabs, matchedJabs,
-    missedJabs, extraJabs: extraActions.filter((action) => action.label === "1").map(({ sequenceId, timestamp, arm }) => ({ sequenceId, timestamp, arm })), precision, recall,
+    missedJabs, extraJabs: extraActions.filter((action) => isJabLabel(action.label)).map(({ sequenceId, timestamp, arm }) => ({ sequenceId, timestamp, arm })), precision, recall,
     f1: precision + recall === 0 ? 0 : 2 * precision * recall / (precision + recall),
     movementCount, classifiedMovements,
     correctlyClassifiedMovements,
@@ -221,16 +221,6 @@ function nearestPrediction<T extends { timestamp: number; arm: string }>(
   }, -1);
 }
 
-function nearestActionPrediction(
-  predictions: Array<{ timestamp: number; arm: string; label: BoxingActionLabel }>,
-  used: Set<number>,
-  expected: { timestamp: number; arm: string; label: BoxingActionLabel },
-  toleranceMs: number,
-) {
-  return predictions.reduce((bestIndex, prediction, index) => {
-    const distance = Math.abs(prediction.timestamp - expected.timestamp);
-    if (used.has(index) || prediction.arm !== expected.arm || prediction.label !== expected.label || distance > toleranceMs) return bestIndex;
-    if (bestIndex < 0 || distance < Math.abs(predictions[bestIndex].timestamp - expected.timestamp)) return index;
-    return bestIndex;
-  }, -1);
+function isJabLabel(label: BoxingActionLabel) {
+  return label === "1" || label === "1b";
 }

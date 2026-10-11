@@ -30,6 +30,14 @@ function lateralLeftExtension(timestamp: number): PoseFrame {
   return frame;
 }
 
+function lateralRightExtension(timestamp: number): PoseFrame {
+  const frame = pose(timestamp, false, true);
+  if (!frame.landmarks) throw new Error("Test pose should have landmarks");
+  frame.landmarks[14].z = frame.landmarks[12].z;
+  frame.landmarks[16].z = frame.landmarks[12].z;
+  return frame;
+}
+
 function setArm(points: Landmark[], side: "left" | "right", extended: boolean) {
   const [shoulder, elbow, wrist] = side === "left" ? [11, 13, 15] : [12, 14, 16];
   const sign = side === "left" ? -1 : 1;
@@ -128,14 +136,23 @@ describe("boxing detection pipeline", () => {
       const pipeline = new BoxingDetectionPipeline();
       pipeline.process(pose(0));
       pipeline.process(trajectoryPose(50, side, { x: 0.55, y: 0.38, z: 0 }));
-      const hook = pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.38, z: 0 }, true));
+      pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.38, z: 0 }));
+      const hook = pipeline.process(trajectoryPose(150, side, { x: 0.65, y: 0.38, z: 0 }, true));
       expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
     }
+    const sidewaysExtension = new BoxingDetectionPipeline();
+    sidewaysExtension.process(pose(0));
+    sidewaysExtension.process(trajectoryPose(50, "left", { x: 0.55, y: 0.38, z: 0 }));
+    sidewaysExtension.process(trajectoryPose(100, "left", { x: 0.7, y: 0.38, z: 0 }));
+    const unclassified = sidewaysExtension.process(trajectoryPose(150, "left", { x: 0.85, y: 0.38, z: 0 }, true));
+    expect(unclassified.events).toHaveLength(0);
+    expect(unclassified.unclassified).toHaveLength(1);
     for (const [side, label] of [["left", "3b"], ["right", "4b"]] as const) {
       const pipeline = new BoxingDetectionPipeline();
       pipeline.process(pose(0));
       pipeline.process(trajectoryPose(50, side, { x: 0.55, y: 0.38, z: 0 }));
-      const hook = pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.58, z: 0 }, true));
+      pipeline.process(trajectoryPose(100, side, { x: 0.7, y: 0.38, z: 0 }));
+      const hook = pipeline.process(trajectoryPose(150, side, { x: 0.65, y: 0.58, z: 0 }, true));
       expect(hook.events[0]).toMatchObject({ type: "hook", label, arm: side });
     }
   });
@@ -216,6 +233,14 @@ describe("boxing detection pipeline", () => {
     const update = pipeline.process(lateralLeftExtension(100));
     expect(update.events).toHaveLength(0);
     expect(update.unclassified).toMatchObject([{ arm: "left", reason: "ambiguous-extension" }]);
+  });
+
+  it("keeps a rear-arm lateral extension unclassified instead of calling it a straight", () => {
+    const pipeline = new BoxingDetectionPipeline();
+    pipeline.process(pose(0));
+    const update = pipeline.process(lateralRightExtension(100));
+    expect(update.events).toHaveLength(0);
+    expect(update.unclassified).toMatchObject([{ arm: "right", reason: "rear-hand-extension" }]);
   });
 
   it("resets movement baselines across a long tracking gap", () => {
