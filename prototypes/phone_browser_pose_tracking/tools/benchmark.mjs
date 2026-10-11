@@ -134,7 +134,10 @@ try {
     modelHash,
     visionVersion: visionPackage.version,
   });
-  if (options.baseline) report.baselineComparison = compareReports(parseJson(await readFile(resolve(options.baseline), "utf8"), options.baseline));
+  if (options.baseline) {
+    const baseline = parseJson(await readFile(resolve(options.baseline), "utf8"), options.baseline);
+    report.baselineComparison = compareReports(report, baseline);
+  }
 
   const outputDir = resolve(datasetRoot, "runs");
   await mkdir(outputDir, { recursive: true });

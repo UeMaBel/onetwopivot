@@ -60,6 +60,9 @@ A shorthand for one of six basic punches: **1** jab, **2** rear straight, **3** 
 **Body punch**:
 A punch aimed at the body rather than the head. Add the suffix `b` to a punch number to indicate a body punch, such as **1b** for a body jab or **6b** for a rear uppercut to the body.
 
+**Head punch**:
+A punch aimed at the head.
+
 **Slip**:
 A defensive head movement away from a punch line. Benchmark labels specify direction relative to stance as `lead_slip` or `rear_slip`.
 
