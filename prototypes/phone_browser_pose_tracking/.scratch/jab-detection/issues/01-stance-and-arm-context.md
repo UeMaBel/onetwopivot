@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Timestamped pose frames flow through a small, typed, on-device boxing detection pipeline and are shared with the components that need them.
-- [ ] Stance context reports the latest certain stance; when current stance is uncertain it retains the latest certain stance, and before any certain result it reports orthodox stance as an explicitly marked assumption.
-- [ ] Stance context is captured when a punch movement begins, so later stance changes do not relabel that action.
-- [ ] Left and right arm observations are tracked independently and include timestamps and basic movement evidence without owning punch phases or long action histories.
-- [ ] Detector modules live under `src/detectors/boxing/`, separate from the existing boxing UI and check flow; no general-purpose detector registry is introduced.
-- [ ] The live prototype makes current stance and arm observations inspectable, including whether stance was detected or assumed.
-- [ ] Movement and stance thresholds remain adjustable for later tuning from phone observations.
+- [x] Timestamped pose frames flow through a small, typed, on-device boxing detection pipeline and are shared with the components that need them.
+- [x] Stance context reports the latest certain stance; when current stance is uncertain it retains the latest certain stance, and before any certain result it reports orthodox stance as an explicitly marked assumption.
+- [x] Stance context is captured when a punch movement begins, so later stance changes do not relabel that action.
+- [x] Left and right arm observations are tracked independently and include timestamps and basic movement evidence without owning punch phases or long action histories.
+- [x] Detector modules live under `src/detectors/boxing/`, separate from the existing boxing UI and check flow; no general-purpose detector registry is introduced.
+- [x] The live prototype makes current stance and arm observations inspectable, including whether stance was detected or assumed.
+- [x] Movement and stance thresholds remain adjustable for later tuning from phone observations.

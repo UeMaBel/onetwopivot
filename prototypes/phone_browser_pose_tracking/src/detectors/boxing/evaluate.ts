@@ -1,0 +1,127 @@
+import type { BoxingThresholds, JabEvent, PoseSequence, SequenceAnnotation, UnclassifiedMovement } from "./contracts";
+import { BoxingDetectionPipeline } from "./pipeline";
+import { defaultBoxingThresholds } from "./thresholds";
+
+export type EvaluationInput = { sequences: PoseSequence[]; annotations: SequenceAnnotation[] };
+type MovementPrediction = { timestamp: number; arm: string; label: "jab" | "unclassified" };
+
+export type EvaluationReport = {
+  sequenceCount: number;
+  expectedJabs: number;
+  detectedJabs: number;
+  matchedJabs: number;
+  missedJabs: Array<{ sequenceId: string; timestamp: number; arm: string }>;
+  extraJabs: Array<{ sequenceId: string; timestamp: number; arm: string }>;
+  precision: number;
+  recall: number;
+  f1: number;
+  movementCount: number;
+  classifiedMovements: number;
+  correctlyClassifiedMovements: number;
+  classificationCoverage: number;
+  classificationAccuracy: number;
+  stance: { expected: number; correct: number; accuracy: number };
+};
+
+export function evaluateSequences(
+  input: EvaluationInput,
+  thresholds: BoxingThresholds = defaultBoxingThresholds,
+  timingToleranceMs = 250,
+): EvaluationReport {
+  const annotations = new Map(input.annotations.map((annotation) => [annotation.sequenceId, annotation]));
+  const missedJabs: EvaluationReport["missedJabs"] = [];
+  const extraJabs: EvaluationReport["extraJabs"] = [];
+  let expectedJabs = 0;
+  let detectedJabs = 0;
+  let matchedJabs = 0;
+  let movementCount = 0;
+  let classifiedMovements = 0;
+  let correctlyClassifiedMovements = 0;
+  let stanceExpected = 0;
+  let stanceCorrect = 0;
+
+  for (const sequence of input.sequences) {
+    const annotation = annotations.get(sequence.id);
+    if (!annotation) throw new Error(`Missing annotation for sequence: ${sequence.id}`);
+    const pipeline = new BoxingDetectionPipeline(thresholds);
+    const events: JabEvent[] = [];
+    const uncertain: UnclassifiedMovement[] = [];
+    const updates = sequence.frames.map((frame) => {
+      const update = pipeline.process(frame);
+      events.push(...update.events);
+      uncertain.push(...update.unclassified);
+      return update;
+    });
+
+    const expectedJabLabels = [...annotation.jabs].sort((a, b) => a.timestamp - b.timestamp);
+    const expectedMovements = annotation.movements ?? expectedJabLabels.map((jab) => ({ ...jab, expected: "jab" as const }));
+    const predictions: MovementPrediction[] = [
+      ...events.map((event) => ({ timestamp: event.timestamp, arm: event.arm, label: "jab" as const })),
+      ...uncertain.map((movement) => ({ timestamp: movement.timestamp, arm: movement.arm, label: "unclassified" as const })),
+    ];
+
+    movementCount += expectedMovements.length;
+    const usedMovements = new Set<number>();
+    for (const expected of [...expectedMovements].sort((a, b) => a.timestamp - b.timestamp)) {
+      const predictionIndex = nearestPrediction(predictions, usedMovements, expected, timingToleranceMs);
+      if (predictionIndex < 0) continue;
+      usedMovements.add(predictionIndex);
+      if (predictions[predictionIndex].label === "jab") {
+        classifiedMovements++;
+        if (expected.expected === "jab") correctlyClassifiedMovements++;
+      }
+    }
+
+    expectedJabs += expectedJabLabels.length;
+    detectedJabs += events.length;
+    const usedJabs = new Set<number>();
+    for (const jab of expectedJabLabels) {
+      const eventIndex = nearestPrediction(events, usedJabs, jab, timingToleranceMs);
+      if (eventIndex < 0) missedJabs.push({ sequenceId: sequence.id, ...jab });
+      else {
+        usedJabs.add(eventIndex);
+        matchedJabs++;
+      }
+    }
+    events.forEach((event, index) => {
+      if (!usedJabs.has(index)) extraJabs.push({ sequenceId: sequence.id, timestamp: event.timestamp, arm: event.arm });
+    });
+
+    const stanceSamples = annotation.stances ?? (annotation.stance ? [{ timestamp: sequence.frames[0]?.timestamp ?? 0, stance: annotation.stance }] : []);
+    for (const expected of stanceSamples) {
+      const closest = updates.reduce<(typeof updates)[number] | undefined>((best, update) => {
+        if (!best || Math.abs(update.timestamp - expected.timestamp) < Math.abs(best.timestamp - expected.timestamp)) return update;
+        return best;
+      }, undefined);
+      stanceExpected++;
+      if (closest?.stance.context.source === "detected" && closest.stance.context.stance === expected.stance) stanceCorrect++;
+    }
+  }
+
+  const precision = detectedJabs === 0 ? (expectedJabs === 0 ? 1 : 0) : matchedJabs / detectedJabs;
+  const recall = expectedJabs === 0 ? 1 : matchedJabs / expectedJabs;
+  return {
+    sequenceCount: input.sequences.length, expectedJabs, detectedJabs, matchedJabs,
+    missedJabs, extraJabs, precision, recall,
+    f1: precision + recall === 0 ? 0 : 2 * precision * recall / (precision + recall),
+    movementCount, classifiedMovements,
+    correctlyClassifiedMovements,
+    classificationCoverage: movementCount ? classifiedMovements / movementCount : 1,
+    classificationAccuracy: classifiedMovements ? correctlyClassifiedMovements / classifiedMovements : 1,
+    stance: { expected: stanceExpected, correct: stanceCorrect, accuracy: stanceExpected ? stanceCorrect / stanceExpected : 1 },
+  };
+}
+
+function nearestPrediction<T extends { timestamp: number; arm: string }>(
+  predictions: T[],
+  used: Set<number>,
+  expected: { timestamp: number; arm: string },
+  toleranceMs: number,
+) {
+  return predictions.reduce((bestIndex, prediction, index) => {
+    const distance = Math.abs(prediction.timestamp - expected.timestamp);
+    if (used.has(index) || prediction.arm !== expected.arm || distance > toleranceMs) return bestIndex;
+    if (bestIndex < 0 || distance < Math.abs(predictions[bestIndex].timestamp - expected.timestamp)) return index;
+    return bestIndex;
+  }, -1);
+}

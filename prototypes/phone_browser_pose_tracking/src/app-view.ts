@@ -23,6 +23,7 @@ export function mountApp() {
         <article class="metric-card"><span class="metric-label">Processing</span><strong id="processing-rate">—</strong><small>frames per second</small></article>
         <article class="metric-card"><span class="metric-label">Detection gaps</span><strong id="pose-gaps">0</strong><small>frames without a person</small></article>
       </section>
+      <div id="boxing-detection"></div>
       <div id="boxing-check"></div>
       <footer class="privacy-note"><span class="privacy-icon" aria-hidden="true">⌁</span><p>Camera frames and pose results are processed on this device and are not recorded or uploaded. MediaPipe also sends API performance and usage metrics to Google.</p></footer>
       <p class="error-message" id="error-message" role="alert" hidden></p>

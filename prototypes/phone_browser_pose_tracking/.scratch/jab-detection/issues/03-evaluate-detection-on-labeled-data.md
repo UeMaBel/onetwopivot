@@ -4,10 +4,10 @@
 
 **Blocked by:** 02: Detect and display jab events.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] A local, timestamped pose sequence can be replayed through the same boxing detection pipeline used by the live prototype.
-- [ ] Annotations can describe expected stance and jab events, including event timing and anatomical arm where available.
-- [ ] The evaluation reports missed and extra jab detections and classification coverage alongside correctness.
-- [ ] Results are repeatable for the same input and detector configuration, so changes can be compared across runs.
-- [ ] Evaluation data and results remain local to the prototype; the workflow does not upload pose data or raw video.
+- [x] A local, timestamped pose sequence can be replayed through the same boxing detection pipeline used by the live prototype.
+- [x] Annotations can describe expected stance and jab events, including event timing and anatomical arm where available.
+- [x] The evaluation reports missed and extra jab detections and classification coverage alongside correctness.
+- [x] Results are repeatable for the same input and detector configuration, so changes can be compared across runs.
+- [x] Evaluation data and results remain local to the prototype; the workflow does not upload pose data or raw video.

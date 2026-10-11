@@ -1,0 +1,12 @@
+import type { BoxingThresholds } from "./contracts";
+
+// Keep these values together for tuning after phone observations.
+export const defaultBoxingThresholds: BoxingThresholds = {
+  stanceDepthRatio: 0.18,
+  movementStartDelta: 0.08,
+  minimumForwardMovement: 0.06,
+  minimumExtension: 0.78,
+  minimumExtensionDelta: 0.16,
+  recoveryExtension: 0.58,
+  trackingGapResetMs: 700,
+};

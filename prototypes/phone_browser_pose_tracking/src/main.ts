@@ -6,11 +6,15 @@ import type { Landmark, WorkerReply } from "./pose-types";
 import { TrackingMetrics } from "./tracking-metrics";
 import { mountBoxingCheck } from "./boxing/boxing-view";
 import { BoxingCheck } from "./boxing/boxing-check";
+import { BoxingDetectionPipeline } from "./detectors/boxing/pipeline";
+import { mountDetectionView } from "./boxing/detection-view";
 
 const view = mountApp();
 const cameraSource = new BrowserCameraSource();
 const metrics = new TrackingMetrics(view.metrics);
 const boxingView = mountBoxingCheck();
+const detectionPipeline = new BoxingDetectionPipeline();
+const detectionView = mountDetectionView(detectionPipeline.thresholds);
 
 let worker: Worker | undefined;
 let stream: MediaStream | undefined;
@@ -47,6 +51,10 @@ function handleWorkerMessage(event: MessageEvent<WorkerReply>) {
     timestamp: message.timestamp,
     landmarks: message.landmarks,
   });
+  detectionView.update(detectionPipeline.process({
+    timestamp: message.timestamp,
+    landmarks: message.landmarks,
+  }));
   metrics.record(message.inferenceMs, !!message.landmarks);
   if (message.landmarks) setTrackingStatus("Pose tracking", "tracking");
   else setTrackingStatus("Move fully into view", "lost");
@@ -103,6 +111,8 @@ async function startCamera() {
       modelPath: poseModel.assetPath,
     });
     metrics.reset();
+    detectionPipeline.reset();
+    detectionView.reset();
     cancelAnimationFrame(animationId);
     animationId = requestAnimationFrame(tick);
   } catch (error) {
@@ -126,6 +136,8 @@ function stopCamera(resetMessage = true) {
   frameInFlight = false;
   lastVideoTime = -1;
   latestLandmarks = null;
+  detectionPipeline.reset();
+  detectionView.reset();
   cameraSource.stop();
   stream = undefined;
   view.video.srcObject = null;

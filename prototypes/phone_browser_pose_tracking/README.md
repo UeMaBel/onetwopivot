@@ -57,6 +57,47 @@ The `predev` step copies MediaPipe's browser bundle and WASM runtime into the ap
 
 To switch variants later, add the corresponding model asset and update `poseModel` in `src/config.ts`; the model selection is kept out of the camera and overlay code.
 
+## Boxing detection
+
+The on-device boxing pipeline consumes timestamped pose frames shared from the live pose worker. It exposes stance context, separate left and right arm observations, jab events, unclassified extensions, and recovery updates. Thresholds are collected in `src/detectors/boxing/thresholds.ts` and can also be adjusted in the live detection panel. These values are provisional until they are tuned from phone observations.
+
+Jab events are reported when a lead arm extension crosses the configured movement and extension thresholds and the wrist moves toward the phone camera. Lateral extensions without forward movement remain unclassified. This direction cue reflects the face-the-phone experiment setup; it will need review if the camera angle changes. Recovery is attached as separate event status; loss of tracking marks recovery incomplete without removing the jab. Rear-hand extensions remain unclassified. The confidence value is a provisional heuristic, not a calibrated probability.
+
+## Labeled sequence evaluation
+
+Use **Evaluate labeled pose sequences** below the live detection panel to replay a local JSON file through the same `BoxingDetectionPipeline`. Nothing is uploaded. The file shape is:
+
+```json
+{
+  "sequences": [
+    {
+      "id": "jab-01",
+      "frames": [
+        { "timestamp": 0, "landmarks": null },
+        { "timestamp": 100, "landmarks": [{ "x": 0.4, "y": 0.3, "z": 0, "visibility": 1 }] }
+      ]
+    }
+  ],
+  "annotations": [
+    {
+      "sequenceId": "jab-01",
+      "stances": [{ "timestamp": 0, "stance": "orthodox" }],
+      "jabs": [{ "timestamp": 100, "arm": "left" }],
+      "movements": [
+        { "timestamp": 100, "arm": "left", "expected": "jab" },
+        { "timestamp": 500, "arm": "right", "expected": "unclassified" }
+      ]
+    }
+  ]
+}
+```
+
+Each non-null `landmarks` array uses MediaPipe's landmark order and should contain the full 33-point pose. `stances` is optional; its timestamped samples are scored independently of jab matches. A single `stance` field can describe one stance sample at the sequence start. Jab annotations include event time in milliseconds and anatomical arm. `movements` describes the labeled movement candidates used for coverage and classification accuracy; if omitted, jab annotations supply that set. The report lists missed and extra jabs, precision, recall, F1, movement classification coverage and accuracy, and stance accuracy. `timingToleranceMs` defaults to 250 in the evaluator API.
+
+The one-point landmark array in the abbreviated JSON example illustrates the object shape only; real input frames need all 33 landmarks.
+
+Run `npm test` for the black-box pipeline and evaluator tests, `npm run lint` for linting, and `npm run build` for type checking and a production build.
+
 ## Status
 
-The first browser implementation is in place. The live phone run remains to be done; its measurements will set the later acceptance thresholds.
+The browser detection and local evaluation workflows are implemented. The live phone run remains to be done; its measurements will guide threshold tuning and validation against labeled movement data.
