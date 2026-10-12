@@ -1,15 +1,15 @@
 # Detection Benchmark Optimization Handoff
 
-This guide is for an agent improving boxing detection against the local video benchmark. Work in a measured loop: inspect the current detector, run labeled tuning clips, make one focused change, and compare the report. Keep the dataset and its split assignments intact.
+Use this guide to improve boxing detection against the local video benchmark. Work in a measured loop: inspect the current detector, run labeled tuning clips, make one focused change, then compare reports. Preserve the dataset and its split assignments.
 
-## Current state (2026-10-11)
+## Current state (checked 2026-10-12)
 
-- The benchmark runner is `prototypes/phone_browser_pose_tracking/tools/benchmark.mjs`; the shared detection code is in `packages/boxing-detection`.
-- Current observable detection capabilities are **stance** and **jab**. Confirm this from the current pipeline, contracts, detectors, and tests at the start of each task. Expand the optimization targets when the implementation gains another detectable action; do not assume this list stays current.
-- The current local dataset has nine clips, all labeled `tuning`. Each sidecar expects five jabs (`1`) and five rear straights (`2`); four clips are orthodox and five are southpaw.
-- The detector recognizes jabs. Rear-hand extensions are currently unclassified, so label `2`'s zero detections are outside the current detector's capability and are not a jab regression.
-- The saved run `test_data/media/runs/benchmark-2026-10-11T18-05-41.083Z.json` used default thresholds on all nine clips: 24/45 jabs detected, 48 unclassified movements, and stance correct on 5/9 clips. This is a historical `all` split report, not a tuning-only baseline.
-- The user will add validation clips. Do not relabel or move existing sidecars; use `tuning` to choose changes and reserve `validation` for a later check.
+- The benchmark runner is `prototypes/phone_browser_pose_tracking/tools/benchmark.mjs`; shared detection logic is in `packages/boxing-detection`.
+- The pipeline currently detects stance and all six basic punch types: jab (`1`), rear straight (`2`), lead/rear hook (`3`/`4`), and lead/rear uppercut (`5`/`6`). It can also label body-target variants (`1b`–`6b`). Confirm emitted labels from the current pipeline and detector code at the start of each task; keep this handoff in sync as implementation changes.
+- The local dataset has nine `tuning` clips and seven `validation` clips. All 16 videos annotate only jabs (`1`) and rear straights (`2`), with five of each per clip. Tuning includes four orthodox and five southpaw stances; validation has four orthodox and three southpaw clips.
+- For the current videos, optimize jab, rear straight, and stance performance. Hooks, uppercuts, and body-target classification have no labeled examples here, so this benchmark cannot establish whether those detections improve. Add labeled media before optimizing those categories against video.
+- Existing reports are historical snapshots, not necessarily baselines for later code changes. At handoff update time, the latest tuning report was `test_data/media/runs/benchmark-2026-10-11T18-59-51.971Z.json` (default profile: 35/45 jabs, 0/45 rear straights, stance 5/9). The available validation report was `test_data/media/runs/benchmark-2026-10-11T18-52-54.304Z.json` (`validation-candidate`: 25/35 jabs, 0/35 rear straights, stance 4/7). Establish a fresh baseline for the current code and profile before comparing iterations.
+- Preserve existing sidecar labels and splits. Use `tuning` to choose changes. Keep `validation` held out until a candidate is selected, then run it as a separate check; do not tune against validation results.
 
 ## Setup and run
 
@@ -22,46 +22,47 @@ npm run install-benchmark-browser
 npm run benchmark -- --dataset ../../test_data/media --split tuning
 ```
 
-The benchmark decodes local videos with FFmpeg, runs MediaPipe pose inference in headless Chromium, and feeds timestamped pose frames through the shared boxing pipeline. Pose caches are written next to videos and reports are written under `test_data/media/runs/`. The workflow is local; it does not upload media or results.
+The benchmark decodes local videos with FFmpeg, runs MediaPipe pose inference in headless Chromium, and feeds timestamped pose frames through the shared boxing pipeline. Pose caches are written next to videos and reports go under `test_data/media/runs/`. Media and results remain local.
 
-Use the report path printed at the end of each run. A report includes the selected split, threshold values, model/version/hash, per-clip expected and detected action counts, per-clip stance result, unclassified count, cache status, and aggregate totals. The `--baseline` option reports changes in absolute count error, stance accuracy, and unclassified count.
+Use the report path printed at the end of each run. Reports include the split, threshold values, pose model/version/hash, per-clip expected and detected action counts, per-clip stance results, unclassified counts, cache status, and aggregate totals. `--baseline` compares absolute action count error, stance accuracy, and unclassified count.
 
 ## Optimization loop
 
-1. **Discover the current target surface.** Read `prototypes/phone_browser_pose_tracking/README.md`, `specs/jab-detection.md`, `packages/boxing-detection/src/pipeline.ts`, the current detector and contracts, and `packages/boxing-detection/src/evaluate.ts`. Check which action labels the pipeline can actually emit and what each report field means. Keep this guide's target list in sync when capability changes.
-2. **Establish a tuning baseline.** Run `--split tuning` with the current default thresholds and keep that report path. The historical `all` report is not a same-split comparator.
-3. **Make one focused change.** For threshold-only experiments, copy `tools/thresholds/default.json` to a clearly named profile and change one or a small, related set of values. Keep the default profile unchanged. If the evidence points to detector logic instead, make a narrow code change in the shared detection package and rerun the same tuning set.
-4. **Rerun the same tuning split.** Example with a profile and baseline:
+1. **Discover detector and dataset coverage.** Read the prototype README, relevant detection specs, `packages/boxing-detection/src/pipeline.ts`, detector code, contracts, and `packages/boxing-detection/src/evaluate.ts`. Check which labels the pipeline can emit, which labels have examples in the selected media split, and what report fields mean. Refresh this handoff's capability and dataset summary if either changed.
+2. **Establish a tuning baseline.** Run `--split tuning` with current default thresholds and keep the report path. Do not use an `all` report as a same-split comparator.
+3. **Make one focused change.** For threshold-only experiments, copy `tools/thresholds/default.json` to a clearly named profile and change one value or a small related set. Keep the default unchanged. If evidence points to detector logic, make a narrow change in the shared detection package and rerun the same tuning set.
+4. **Rerun the same tuning split.** Example:
 
    ```sh
    npm run benchmark -- --dataset ../../test_data/media --split tuning --thresholds tools/thresholds/jab-experiment.json --baseline ../../test_data/media/runs/<baseline-report>.json
    ```
 
-   Replace `<baseline-report>` with the exact report filename. Use reports from the same split for comparisons. Pose frames are cached independently of detector thresholds, so threshold experiments should reuse the cache. Use `--refresh-poses` only when the source video, pose model/runtime, or frame-sampling policy needs to be reprocessed.
+   Replace `<baseline-report>` with the exact report filename. Compare reports from the same split. Pose frames are cached independently of detector thresholds, so threshold experiments should reuse them. Use `--refresh-poses` only when the video, pose model/runtime, or frame-sampling policy needs reprocessing.
 
-5. **Inspect the full report, not just the aggregate.** Compare jab count error for each clip and in aggregate; check stance correctness per clip and in aggregate; note unclassified movements. Look for regressions hidden by aggregate totals, including differences by stance. Keep each run's profile and report identifiable so results can be reproduced.
-6. **Keep uncertainty honest.** Do not lower unclassified counts by assigning unsupported labels or weakening evidence until ambiguous motion is guessed. Unclassified movements are expected when the current detector sees a movement it cannot confidently call a jab; they are diagnostic context, not a score to minimize on their own.
-7. **Stop tuning on tuning data when it improves the agreed target without an unacceptable regression.** Once validation sidecars exist, run the selected candidate on `--split validation` as a separate check. Do not use validation results to pick thresholds and do not move clips between splits to improve a result.
+5. **Inspect per-clip and aggregate results.** Compare count error for each annotated and supported label (`1` and `2`) and stance correctness. Check for regressions hidden by aggregate totals, including differences by stance. Keep profiles and report paths identifiable so results can be reproduced.
+6. **Keep uncertainty honest.** Do not lower unclassified counts by assigning unsupported labels or weakening evidence until ambiguous motion is guessed. Treat unclassified counts as diagnostic context, not a score to minimize on its own.
+7. **Select using tuning, then validate once.** Choose a candidate based on tuning results and any agreed regression limits. Run that candidate on `--split validation` as a separate check. Do not use validation results to choose thresholds or make further tuning changes; do not move clips between splits.
 
 ## What this benchmark can and cannot establish
 
-- Sidecars provide whole-video action counts, not event timestamps. The benchmark can compare counts but cannot calculate event-level precision, recall, F1, timing accuracy, or determine which individual action was missed or double-counted.
-- Stance annotations are per clip. The report counts the first detected stance for each clip and checks it against that clip's expected stance; it does not measure stance changes within a clip.
-- Expected labels that the current pipeline cannot emit will appear as expected counts with zero detections. Treat these as unsupported targets, not evidence to tune unrelated thresholds. At present this applies to rear straight label `2`.
-- The raw unclassified count is not a labeled false-positive/false-negative measure. Interpret it alongside per-clip action counts and the detector's supported behavior.
-- Count agreement on this small set does not establish generalization. The user plans to supply held-out validation clips for that check.
+- Sidecars provide whole-video action counts, not event timestamps. This benchmark compares counts; it cannot calculate event-level precision, recall, F1, timing accuracy, or identify which individual action was missed or double-counted.
+- Stance annotations are per clip. The report checks the first detected stance against the expected stance; it does not measure stance changes within a clip.
+- The current videos cover only labels `1` and `2`. Although the detector implements hooks, uppercuts, and body-target variants, these videos provide no labeled examples for `3`–`6` or `1b`–`6b`.
+- An expected label with zero detections may indicate a detector failure even when the implementation has that capability. Check the current implementation before deciding a label is unsupported; do not tune unrelated thresholds based on labels the pipeline cannot emit.
+- The raw unclassified count is not a labeled false-positive/false-negative measure. Interpret it alongside per-clip counts and the detector's supported behavior.
+- Count agreement on these short clips does not establish event-level correctness or generalization. The seven validation clips provide a held-out count check for labels `1` and `2` and stance, but not for other punch categories.
 
 ## Dataset and local artifact rules
 
-- Sidecars live beside their videos under `test_data/media/`; the filename base must match the video. Their `split` is `tuning` or `validation`, with whole-clip action counts and a stance label. See `test_data/media/README.md` for the schema and supported label vocabulary.
-- Preserve the user's sidecar labels and split assignments. Do not edit annotations to fit detector output. If an annotation itself appears wrong, report the specific clip and ask the user to correct it.
-- Media, sidecars, pose caches, and run reports are local ignored data. Do not add those generated/private artifacts to commits. Keep code and threshold-profile changes reviewable.
+- Sidecars live beside their videos under `test_data/media/`; the base filename must match the video. Each sidecar gives a stance, `tuning` or `validation` split, and whole-clip action counts. See `test_data/media/README.md` for the schema and action vocabulary.
+- Preserve sidecar labels and split assignments. Do not edit annotations to fit detector output. If an annotation appears wrong, identify the clip and ask the user to correct it.
+- Media, sidecars, pose caches, and run reports are local ignored data. Do not add these generated/private artifacts to commits. Keep code and threshold-profile changes reviewable.
 - Run `npm run benchmark -- --help` from the prototype directory for current options; follow the checked-in runner if its interface changes.
 
 ## Relevant references
 
 - [Prototype and benchmark instructions](prototypes/phone_browser_pose_tracking/README.md#local-video-benchmark)
-- [Jab detector specification](prototypes/phone_browser_pose_tracking/specs/jab-detection.md)
+- [Jab detection specification](prototypes/phone_browser_pose_tracking/specs/jab-detection.md)
 - [Media dataset schema](test_data/media/README.md)
 - [Boxing action labels](prototypes/phone_browser_pose_tracking/BOXING_ACTIONS_CHEATSHEET.md)
 - [Detector design handoff](detector-design-handoff.md)
