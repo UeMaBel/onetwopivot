@@ -6,7 +6,8 @@ export const defaultBoxingThresholds: BoxingThresholds = {
   movementStartDelta: 0.08,
   minimumForwardMovement: 0.02,
   minimumExtension: 0.72,
-  minimumExtensionDelta: 0.16,
+  minimumExtensionDelta: 0.12,
   recoveryExtension: 0.7,
   trackingGapResetMs: 700,
 };
+
