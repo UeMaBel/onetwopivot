@@ -14,7 +14,7 @@ const prototypeRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const repositoryRoot = resolve(prototypeRoot, "../..");
 const defaultModelPath = resolve(prototypeRoot, "public/models/pose_landmarker_lite.task");
 const visionPackage = JSON.parse(await readFile(resolve(prototypeRoot, "node_modules/@mediapipe/tasks-vision/package.json"), "utf8"));
-const samplingPolicy = "every-decoded-frame";
+const samplingPolicy = "every-decoded-frame-aspect-ratio-v2";
 const labelNames = {
   "1": "Jab", "2": "Straight", "3": "Lead hook", "4": "Rear hook",
   "5": "Lead uppercut", "6": "Rear uppercut", "1b": "Body jab",
@@ -224,7 +224,7 @@ async function loadThresholdProfile(profilePath) {
   if (profile.version !== 1 || typeof profile.name !== "string" || !profile.thresholds || typeof profile.thresholds !== "object") {
     throw new Error("Threshold profile must contain version: 1, a name, and a thresholds object.");
   }
-  const keys = ["stanceDepthRatio", "movementStartDelta", "minimumForwardMovement", "minimumExtension", "minimumExtensionDelta", "recoveryExtension", "trackingGapResetMs"];
+  const keys = ["stanceDepthRatio", "movementStartSpeed", "minimumForwardMovement", "minimumExtension", "minimumExtensionDelta", "recoveryExtension", "trackingGapResetMs", "hookMinimumMovementMs", "uppercutMinimumMovementMs", "idleResetMs", "minimumActivitySpeed"];
   const values = profile.thresholds;
   for (const key of keys) {
     if (!Number.isFinite(values[key]) || values[key] <= 0) throw new Error(`Threshold profile has invalid value for ${key}.`);
@@ -238,7 +238,7 @@ async function loadPoseCache(clip, modelHash, force) {
   try {
     const cache = parseJson(await readFile(clip.cachePath, "utf8"), clip.cachePath);
     const sourceHash = await sha256File(clip.videoPath);
-    if (cache.version !== 1 || cache.videoSha256 !== sourceHash || cache.modelSha256 !== modelHash || cache.visionVersion !== visionPackage.version || cache.frameSampling !== samplingPolicy || !Array.isArray(cache.frames) || !cache.frames.every(isPoseFrame)) return null;
+    if (cache.version !== 2 || cache.videoSha256 !== sourceHash || cache.modelSha256 !== modelHash || cache.visionVersion !== visionPackage.version || cache.frameSampling !== samplingPolicy || !Array.isArray(cache.frames) || !cache.frames.every(isPoseFrame)) return null;
     return cache;
   } catch {
     return null;
@@ -246,7 +246,7 @@ async function loadPoseCache(clip, modelHash, force) {
 }
 
 function isPoseFrame(frame) {
-  return frame && Number.isFinite(frame.timestamp) && (frame.landmarks === null || Array.isArray(frame.landmarks));
+  return frame && Number.isFinite(frame.timestamp) && Number.isFinite(frame.aspectRatio) && frame.aspectRatio > 0 && (frame.landmarks === null || Array.isArray(frame.landmarks));
 }
 
 function parseJson(text, source) {
@@ -260,7 +260,7 @@ function parseJson(text, source) {
 async function savePoseCache(clip, frames, modelHash) {
   const sourceHash = await sha256File(clip.videoPath);
   const cache = {
-    version: 1,
+    version: 2,
     videoSha256: sourceHash,
     modelSha256: modelHash,
     visionVersion: visionPackage.version,

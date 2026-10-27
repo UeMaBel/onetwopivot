@@ -78,7 +78,7 @@ describe("boxing detection pipeline", () => {
     expect(pipeline.process(pose(200, true)).events).toHaveLength(0);
     const recovered = pipeline.process(pose(300));
     expect(recovered.events).toHaveLength(0);
-    expect(recovered.recoveryUpdates[0]).toMatchObject({ eventId: jab.events[0].id, recovery: "recovered" });
+    expect(recovered.recoveryUpdates[0]).toMatchObject({ eventId: jab.events[0].id, recovery: "retracted" });
   });
 
   it("labels head and body punches from the fist endpoint relative to the torso", () => {
@@ -118,7 +118,7 @@ describe("boxing detection pipeline", () => {
         const update = pipeline.process(pose(100, side === "left", side === "right", stance));
         expect(update.events[0]).toMatchObject({ arm: side, label, type, stance: { stance } });
         const recovered = pipeline.process(pose(200, false, false, stance));
-        expect(recovered.recoveryUpdates[0]).toMatchObject({ eventId: update.events[0].id, recovery: "recovered" });
+        expect(recovered.recoveryUpdates[0]).toMatchObject({ eventId: update.events[0].id, recovery: "retracted" });
         expect(pipeline.process(pose(300, side === "left", side === "right", stance)).events).toHaveLength(1);
       }
     }

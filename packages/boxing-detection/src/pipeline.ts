@@ -10,6 +10,7 @@ export class BoxingDetectionPipeline {
   private readonly armObserver: ArmObserver;
   private readonly punchDetector: PunchDetector;
   private lastTimestamp: number | undefined;
+  private lastValidArmTimestamp: Record<ArmSide, number | undefined> = { left: undefined, right: undefined };
   readonly thresholds: BoxingThresholds;
 
   constructor(thresholds: BoxingThresholds = defaultBoxingThresholds) {
@@ -24,13 +25,30 @@ export class BoxingDetectionPipeline {
     if (this.lastTimestamp !== undefined && frame.timestamp - this.lastTimestamp > this.thresholds.trackingGapResetMs) {
       this.armObserver.reset();
       recoveryUpdates.push(...this.punchDetector.interrupt(frame.timestamp));
+      this.lastValidArmTimestamp = { left: undefined, right: undefined };
     }
     this.lastTimestamp = frame.timestamp;
     const stance = this.stanceDetector.observe(frame);
-    const arms = { left: this.armObserver.observe(frame, "left"), right: this.armObserver.observe(frame, "right") };
+    const arms = {} as BoxingPipelineUpdate["arms"];
     const events = [] as BoxingPipelineUpdate["events"];
     const unclassified = [] as BoxingPipelineUpdate["unclassified"];
     for (const side of ["left", "right"] as const satisfies readonly ArmSide[]) {
+      let evidence = this.armObserver.observe(frame, side);
+      const lastValid = this.lastValidArmTimestamp[side];
+      if (evidence.extension === null) {
+        if (lastValid !== undefined && frame.timestamp - lastValid > this.thresholds.trackingGapResetMs) {
+          recoveryUpdates.push(...this.punchDetector.interruptArm(side, frame.timestamp));
+          this.lastValidArmTimestamp[side] = undefined;
+        }
+      } else {
+        if (lastValid !== undefined && frame.timestamp - lastValid > this.thresholds.trackingGapResetMs) {
+          recoveryUpdates.push(...this.punchDetector.interruptArm(side, frame.timestamp));
+          this.armObserver.reset(side);
+          evidence = this.armObserver.observe(frame, side);
+        }
+        this.lastValidArmTimestamp[side] = frame.timestamp;
+      }
+      arms[side] = evidence;
       const result = this.punchDetector.observe(arms[side], stance.context);
       events.push(...result.events);
       unclassified.push(...result.unclassified);
@@ -41,6 +59,7 @@ export class BoxingDetectionPipeline {
 
   reset() {
     this.lastTimestamp = undefined;
+    this.lastValidArmTimestamp = { left: undefined, right: undefined };
     this.stanceDetector.reset();
     this.armObserver.reset();
     this.punchDetector.reset();

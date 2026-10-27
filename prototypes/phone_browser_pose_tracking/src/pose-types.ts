@@ -9,5 +9,6 @@ export type WorkerReply =
       timestamp: number;
       inferenceMs: number;
       landmarks: Landmark[] | null;
+      aspectRatio: number;
     }
   | { type: "error"; message: string };

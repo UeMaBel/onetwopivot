@@ -86,6 +86,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         timestamp: message.timestamp,
         inferenceMs: performance.now() - startedAt,
         landmarks: serializableLandmarks(result?.landmarks[0]),
+        aspectRatio: message.bitmap.width / message.bitmap.height,
       });
     } catch (error) {
       workerScope.postMessage({

@@ -17,6 +17,7 @@ export function mountApp() {
         </div>
         <div class="camera-controls"><button class="primary-button" id="start-camera">Start camera</button><button class="secondary-button" id="stop-camera" disabled>Stop</button><p class="camera-message" id="camera-message" role="status">Ready when you are.</p></div>
       </section>
+      <div id="punch-summary"></div>
       <section class="metrics-grid" aria-label="Live measurements">
         <article class="metric-card"><span class="metric-label">Person detected</span><strong id="pose-rate">—</strong><small>of processed frames</small></article>
         <article class="metric-card"><span class="metric-label">Inference</span><strong id="inference-time">—</strong><small>milliseconds per frame</small></article>

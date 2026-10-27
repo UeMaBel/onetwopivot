@@ -9,14 +9,14 @@ type ActiveArm = {
   forward: number;
   lateral: number;
   upward: number;
-  movementFrames: number;
-  idleFrames: number;
+  movementDurationMs: number;
+  idleDurationMs: number;
   lastLateralDirection: number;
   lateralTurns: number;
   eventId: number | null;
   stanceAtStart: StanceContext | null;
 };
-const emptyArm = (): ActiveArm => ({ extended: false, lastExtension: null, movementStartExtension: null, forward: 0, lateral: 0, upward: 0, movementFrames: 0, idleFrames: 0, lastLateralDirection: 0, lateralTurns: 0, eventId: null, stanceAtStart: null });
+const emptyArm = (): ActiveArm => ({ extended: false, lastExtension: null, movementStartExtension: null, forward: 0, lateral: 0, upward: 0, movementDurationMs: 0, idleDurationMs: 0, lastLateralDirection: 0, lateralTurns: 0, eventId: null, stanceAtStart: null });
 
 export class PunchDetector {
   private arms: Record<ArmSide, ActiveArm> = { left: emptyArm(), right: emptyArm() };
@@ -37,34 +37,38 @@ export class PunchDetector {
 
     if (active.extended && evidence.extension <= this.thresholds.recoveryExtension) {
       active.extended = false;
-      if (active.eventId !== null) recoveryUpdates.push({ eventId: active.eventId, timestamp: evidence.timestamp, recovery: "recovered" });
+      if (active.eventId !== null) recoveryUpdates.push({ eventId: active.eventId, timestamp: evidence.timestamp, recovery: "retracted" });
       this.arms[evidence.side] = { ...emptyArm(), lastExtension: evidence.extension };
       return { events, unclassified, recoveryUpdates };
     }
 
-    if (!active.extended && active.movementStartExtension === null && (evidence.actionStarted || evidence.movement >= this.thresholds.movementStartDelta)) {
+    if (!active.extended && active.movementStartExtension === null && (evidence.actionStarted || evidence.movement >= this.thresholds.movementStartSpeed)) {
       active.movementStartExtension = Math.min(active.lastExtension ?? evidence.extension, evidence.extension);
       active.stanceAtStart = stance;
-      active.forward = 0; active.lateral = 0; active.upward = 0; active.movementFrames = 0;
+      active.forward = 0; active.lateral = 0; active.upward = 0; active.movementDurationMs = 0;
+      active.idleDurationMs = 0;
       active.lastLateralDirection = 0; active.lateralTurns = 0;
     }
     if (!active.extended && active.movementStartExtension !== null) {
-      active.forward += Math.max(0, evidence.forwardMovement);
-      active.lateral += Math.abs(evidence.lateralMovement);
-      active.upward += Math.max(0, evidence.upwardMovement);
+      const elapsedMs = evidence.elapsedSeconds * 1000;
+      active.forward += Math.max(0, evidence.forwardMovement) * evidence.elapsedSeconds;
+      active.lateral += Math.abs(evidence.lateralMovement) * evidence.elapsedSeconds;
+      active.upward += Math.max(0, evidence.upwardMovement) * evidence.elapsedSeconds;
       const lateralDirection = Math.sign(evidence.lateralMovement);
       if (lateralDirection !== 0 && active.lastLateralDirection !== 0 && lateralDirection !== active.lastLateralDirection) active.lateralTurns++;
       if (lateralDirection !== 0) active.lastLateralDirection = lateralDirection;
-      if (evidence.movement > 0.015) { active.movementFrames++; active.idleFrames = 0; }
-      else if (++active.idleFrames >= 3) {
+      if (evidence.movement > this.thresholds.minimumActivitySpeed) {
+        active.movementDurationMs += elapsedMs;
+        active.idleDurationMs = 0;
+      } else if ((active.idleDurationMs += elapsedMs) >= this.thresholds.idleResetMs) {
         active.movementStartExtension = null;
-        active.forward = 0; active.lateral = 0; active.upward = 0; active.movementFrames = 0;
+        active.forward = 0; active.lateral = 0; active.upward = 0; active.movementDurationMs = 0;
         active.stanceAtStart = null;
-        active.idleFrames = 0;
+        active.idleDurationMs = 0;
       }
     }
 
-    const deltaFromRetraction = active.movementStartExtension === null ? evidence.extensionDelta : evidence.extension - active.movementStartExtension;
+    const deltaFromRetraction = active.movementStartExtension === null ? evidence.extensionSpeed * evidence.elapsedSeconds : evidence.extension - active.movementStartExtension;
     const capturedStance = active.stanceAtStart ?? stance;
     const lead = isLead(evidence.side, capturedStance);
     const pathType = active.movementStartExtension === null ? null : this.detectTechnique(active, lead);
@@ -107,13 +111,22 @@ export class PunchDetector {
     return updates;
   }
 
+  interruptArm(side: ArmSide, timestamp: number): RecoveryUpdate[] {
+    const active = this.arms[side];
+    const updates = active.extended && active.eventId !== null
+      ? [{ eventId: active.eventId, timestamp, recovery: "incomplete" as const }]
+      : [];
+    this.arms[side] = emptyArm();
+    return updates;
+  }
+
   reset() { this.arms = { left: emptyArm(), right: emptyArm() }; this.nextId = 1; }
 
   private detectTechnique(active: ActiveArm, lead: boolean) {
     const path = active;
     const minimum = this.thresholds.minimumForwardMovement;
-    return this.uppercut.detect(path, minimum)
-      ?? this.hook.detect(path, minimum)
+    return this.uppercut.detect(path, minimum, this.thresholds.uppercutMinimumMovementMs)
+      ?? this.hook.detect(path, minimum, this.thresholds.hookMinimumMovementMs)
       ?? (lead ? this.jab.detect(path, minimum) : this.rearStraight.detect(path, minimum));
   }
 }

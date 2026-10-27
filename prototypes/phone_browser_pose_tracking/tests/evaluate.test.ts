@@ -45,7 +45,7 @@ describe("labeled sequence evaluation", () => {
         movements: [{ timestamp: 100, arm: "left", expected: "2" }],
       }],
     });
-    expect(report).toMatchObject({ matchedActions: 1, missedActions: [], extraActions: [], classifiedMovements: 1, correctlyClassifiedMovements: 0, classificationAccuracy: 0 });
+    expect(report).toMatchObject({ matchedActions: 0, missedActions: [{ label: "2" }], extraActions: [], classificationErrors: [{ expectedLabel: "2", predictedLabel: "1" }], classifiedMovements: 1, correctlyClassifiedMovements: 0, classificationAccuracy: 0 });
   });
 
   it("reports misses, extras, coverage, correctness, and repeatable results", () => {

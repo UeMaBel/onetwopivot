@@ -99,7 +99,7 @@ async function processClip(job: BenchmarkJob) {
         worker.postMessage({ type: "frame", bitmap, timestamp: input.timestamp }, [bitmap]);
       });
       if (reply.type !== "result") throw new Error("Pose worker returned an unexpected reply.");
-      frames.push({ timestamp: reply.timestamp, landmarks: reply.landmarks });
+      frames.push({ timestamp: reply.timestamp, landmarks: reply.landmarks, aspectRatio: reply.aspectRatio });
     }
 
     const input: CountBenchmarkClip = {

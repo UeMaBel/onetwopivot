@@ -22,7 +22,8 @@ export type ArmEvidence = {
   timestamp: number;
   wrist: Landmark | null;
   extension: number | null;
-  extensionDelta: number;
+  extensionSpeed: number;
+  elapsedSeconds: number;
   movement: number;
   forwardMovement: number;
   lateralMovement: number;
@@ -41,7 +42,7 @@ export type PunchEvent = {
   stance: StanceContext;
   confidence: number;
   evidence: { extension: number; extensionDelta: number; movement: number; forwardMovement: number };
-  recovery: "pending" | "recovered" | "incomplete";
+  recovery: "pending" | "retracted" | "incomplete";
   recoveryTimestamp?: number;
 };
 export type JabEvent = PunchEvent;
@@ -49,7 +50,7 @@ export type JabEvent = PunchEvent;
 export type RecoveryUpdate = {
   eventId: number;
   timestamp: number;
-  recovery: "recovered" | "incomplete";
+  recovery: "retracted" | "incomplete";
 };
 
 export type UnclassifiedMovement = {
@@ -73,12 +74,16 @@ export type BoxingPipelineUpdate = {
 
 export type BoxingThresholds = {
   stanceDepthRatio: number;
-  movementStartDelta: number;
+  movementStartSpeed: number;
   minimumForwardMovement: number;
   minimumExtension: number;
   minimumExtensionDelta: number;
   recoveryExtension: number;
   trackingGapResetMs: number;
+  hookMinimumMovementMs: number;
+  uppercutMinimumMovementMs: number;
+  idleResetMs: number;
+  minimumActivitySpeed: number;
 };
 
 export type PoseSequence = { id: string; frames: PoseFrame[] };

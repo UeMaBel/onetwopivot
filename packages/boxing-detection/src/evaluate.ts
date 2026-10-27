@@ -27,6 +27,7 @@ export type EvaluationReport = {
   matchedActions: number;
   missedActions: Array<{ sequenceId: string; timestamp: number; arm: string; label: BoxingActionLabel }>;
   extraActions: Array<{ sequenceId: string; timestamp: number; arm: string; label: BoxingActionLabel }>;
+  classificationErrors: Array<{ sequenceId: string; expectedTimestamp: number; predictedTimestamp: number; arm: string; expectedLabel: BoxingActionLabel; predictedLabel: BoxingActionLabel }>;
 };
 
 export function evaluateSequences(
@@ -39,6 +40,7 @@ export function evaluateSequences(
   const extraJabs: EvaluationReport["extraJabs"] = [];
   const missedActions: EvaluationReport["missedActions"] = [];
   const extraActions: EvaluationReport["extraActions"] = [];
+  const classificationErrors: EvaluationReport["classificationErrors"] = [];
   let expectedJabs = 0;
   let detectedJabs = 0;
   let matchedJabs = 0;
@@ -93,8 +95,21 @@ export function evaluateSequences(
       if (eventIndex < 0) missedActions.push({ sequenceId: sequence.id, ...action });
       else {
         usedActions.add(eventIndex);
-        matchedActions++;
-        if (isJabLabel(events[eventIndex].label)) matchedJabs++;
+        const prediction = events[eventIndex];
+        if (prediction.label === action.label) {
+          matchedActions++;
+          if (isJabLabel(action.label)) matchedJabs++;
+        } else {
+          classificationErrors.push({
+            sequenceId: sequence.id,
+            expectedTimestamp: action.timestamp,
+            predictedTimestamp: prediction.timestamp,
+            arm: action.arm,
+            expectedLabel: action.label,
+            predictedLabel: prediction.label,
+          });
+          missedActions.push({ sequenceId: sequence.id, ...action });
+        }
       }
     }
     events.forEach((event, index) => {
@@ -126,7 +141,7 @@ export function evaluateSequences(
     classificationCoverage: movementCount ? classifiedMovements / movementCount : 1,
     classificationAccuracy: classifiedMovements ? correctlyClassifiedMovements / classifiedMovements : 1,
     stance: { expected: stanceExpected, correct: stanceCorrect, accuracy: stanceExpected ? stanceCorrect / stanceExpected : 1 },
-    expectedActions, detectedActions, matchedActions, missedActions, extraActions,
+    expectedActions, detectedActions, matchedActions, missedActions, extraActions, classificationErrors,
   };
 }
 

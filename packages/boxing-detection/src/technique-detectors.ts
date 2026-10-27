@@ -4,7 +4,7 @@ export type PunchPathEvidence = {
   forward: number;
   lateral: number;
   upward: number;
-  movementFrames: number;
+  movementDurationMs: number;
   lateralTurns: number;
 };
 
@@ -21,23 +21,23 @@ export class RearStraightDetector {
 }
 
 export class HookDetector {
-  detect(path: PunchPathEvidence, minimumMovement: number) {
-    return hasHookArc(path, minimumMovement) ? "hook" as const : null;
+  detect(path: PunchPathEvidence, minimumMovement: number, minimumDurationMs: number) {
+    return hasHookArc(path, minimumMovement, minimumDurationMs) ? "hook" as const : null;
   }
 }
 
 export class UppercutDetector {
-  detect(path: PunchPathEvidence, minimumMovement: number) {
-    return hasUpwardPath(path, minimumMovement) ? "uppercut" as const : null;
+  detect(path: PunchPathEvidence, minimumMovement: number, minimumDurationMs: number) {
+    return hasUpwardPath(path, minimumMovement, minimumDurationMs) ? "uppercut" as const : null;
   }
 }
 
-function hasHookArc(path: PunchPathEvidence, minimumMovement: number) {
-  return path.movementFrames >= 3 && path.lateralTurns > 0 && path.lateral >= minimumMovement && path.lateral >= path.forward * 1.2;
+function hasHookArc(path: PunchPathEvidence, minimumMovement: number, minimumDurationMs: number) {
+  return path.movementDurationMs >= minimumDurationMs && path.lateralTurns > 0 && path.lateral >= minimumMovement && path.lateral >= path.forward * 1.2;
 }
 
-function hasUpwardPath(path: PunchPathEvidence, minimumMovement: number) {
-  return path.movementFrames >= 2
+function hasUpwardPath(path: PunchPathEvidence, minimumMovement: number, minimumDurationMs: number) {
+  return path.movementDurationMs >= minimumDurationMs
     && path.upward >= minimumMovement
     && path.upward >= path.forward * 0.85
     && path.upward >= path.lateral * 0.55;

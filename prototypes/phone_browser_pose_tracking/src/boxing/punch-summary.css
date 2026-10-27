@@ -1,0 +1,40 @@
+.punch-summary-card {
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.punch-summary-stance {
+  margin: 0 0 12px;
+  color: #e3e8dc;
+  font-size: 12px;
+}
+.punch-summary-card h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.punch-table-wrap {
+  overflow-x: auto;
+}
+.punch-count-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: center;
+}
+.punch-count-table th,
+.punch-count-table td {
+  padding: 8px 7px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.punch-count-table thead th,
+.punch-count-table tbody th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.punch-count-table td {
+  color: var(--accent);
+  font-family: var(--mono);
+}
